@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 Page</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ephesis&family=Pridi:wght@400&family=Montserrat:wght@400;500;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: #111827;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: "Montserrat", sans-serif;
+        }
+
+        .app {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .text-container {
+            position: relative;
+            z-index: 1;
+            margin: 1rem 0;
+            text-align: center;
+        }
+
+        .text-container h1 {
+            color: white;
+            font-family: "Pridi", serif;
+            font-size: 5rem;
+            margin-bottom: 1rem;
+        }
+
+        .text-container p {
+            color: #6b7280;
+            font-weight: 500;
+            letter-spacing: 0.05rem;
+            margin: 0.5rem 0;
+        }
+
+        .text-container a {
+            color: #06b6d4;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .text-container a:hover {
+            border-bottom: 0.2rem solid #06b6d4;
+        }
+
+        #canyon-wrap {
+            width: 100%;
+        }
+
+        #canyon-wrap svg {
+            background-color: #374151;
+            width: 100%;
+            overflow: visible;
+            display: block;
+        }
+
+        /* Cactus colours */
+        .cactus .c1 { fill: #0e7490; }
+        .cactus .c2 { fill: #155e75; }
+        .cactus .c3 { fill: black; }
+
+        /* Canyon layer colours */
+        .rock-cols { fill: #4b5563; stroke: #1f2937; stroke-width: 5px; }
+        .sky-bg    { fill: #111827; }
+        .fog-band  { fill: #1f2937; }
+        .fg-ground { fill: #111827; }
+
+        /* 404 text */
+        .svg-404 {
+            fill: #6b7280;
+            font-size: 660px;
+            font-weight: 800;
+            font-family: "Montserrat", sans-serif;
+            filter: drop-shadow(0 0 50px #1f2937);
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app">
+    <div class="text-container">
+        <h1>Not Found</h1>
+        <p>Sorry, there's nothing to see here but cacti :(</p>
+        <p>You can <a href="/hyphen_sys/">go back to Login</a>, or <a href="javascript:history.back()">go back</a>.</p>
+    </div>
+    <div id="canyon-wrap"></div>
+</div>
+
+<script>
+    // ── Cactus SVG path data ──────────────────────────────────────────────────
+    const C1 = "m276.5 542.8c0 0-51.3-1.1-86-35.8c-38.6-38.6-38.9-75.8-38.9-75.8v-94.2c0 0-0.3-27.7 28.6-27.7c28.9 0 28.7 27.7 28.7 27.7v69.6c0 0 2 22.9 19.5 44.1c17.4 21.1 49.1 19.4 49.1 19.4v-287.8c0 0 0.2-43.7 42-43.7c37.4 0 44.1 38.6 44.1 38.6v264.2c0 0 29.4-4.3 48.1-22.5c18.7-18.1 19.5-44 19.5-44v-103.5c0 0-2.5-31.2 27.3-31.2c28.2 0 29 27.1 29 27.1v130.1c0 0 1.5 40.8-38.9 79.4c-38.2 36.6-86.1 37.4-86.1 37.4v120.9c-14.2 1.9-28.7 2.9-43.5 2.9c-14.1 0-28-0.9-41.6-2.7z";
+    const C2 = "m330 139.3c15.4 3.9-12.7 14.1-18 29.7c-5.3 15.5-8 26-8 26v442.7q-13.7-0.7-27-2.4v-92.3c0 0-53.3-2.3-77-26c-49.3-49.3-48-81-48-81v-101c0 0 1.9-14.1 8-17c6.1-2.9 13-7 13-7c0 0-6.6 9-9 19c-2.4 10-1.6 77.9-1.6 99.7c0 21.8 17.5 47.3 39.1 65.4c31 26 74.5 26.9 74.5 26.9v-344c0 0 6.4-22.2 18.4-30.3c12-8.1 22.8-11.7 35.6-8.4zm33 351.7c0 0 13.5 1.7 54-14c50.9-19.8 71.2-79.5 71.2-79.5c0 0-8.4 51.7-43.2 83.5c-31.9 29.2-82 32-82 32zm97-250c0 0-8.2 5.1-13 19c-4.8 13.9-1.8 88.3-1.8 96.7c0 8.4-1.1 30.9-11.4 44c-12.4 15.7-24.1 19.5-24.1 19.5c0 0 9.3-4.9 14.3-18.2c5-13.3 6-24 6-24v-114c0 0 5.9-16.9 15-20c9.1-3.1 15-3 15-3z";
+    const C3 = "m490.9 310.7v26.8h13.9c2.5 0 4.5 2 4.5 4.5c0 2.5-2 4.5-4.5 4.5h-13.9v26.7h13.9c2.5 0 4.5 2 4.5 4.5c0 2.5-2 4.5-4.5 4.5h-13.9v5.2q0 11.1-1.8 21.6h13.1c2.5 0 4.5 1.9 4.5 4.4c0 2.5-2 4.5-4.5 4.5h-14.9c-13.4 55.1-62.2 96.4-120.9 98.4v29.5h13.9c2.4 0 4.4 2 4.4 4.5c0 2.5-2 4.5-4.4 4.5h-13.9v26.7h13.9c2.4 0 4.4 2 4.4 4.5c0 2.5-2 4.5-4.4 4.5h-13.9v44q-4.4 0.7-8.9 1.2v-144.4c0-2.5 2-4.5 4.4-4.5c2.5 0 4.5 2 4.5 4.5v16.1c64.1-2.4 115.6-55.2 115.6-119.9v-119c0-13.3-10.8-24-24-24c-13.2 0-23.9 10.7-23.9 24v104.6c0 38.3-30 69.7-67.7 72v7.6c0 2.4-2 4.4-4.5 4.4c-2.4 0-4.4-2-4.4-4.4v-271.4c0-21.1-17.2-38.2-38.2-38.2c-21.1 0-38.2 17.1-38.2 38.2v301.8c0 2.5-2 4.5-4.5 4.5c-2.4 0-4.4-2-4.4-4.5v-8.2c-38.3-1.7-69-33.3-69-72v-64.9c0-13.2-10.7-24-23.9-24c-13.3 0-24 10.8-24 24v79.2c0 65.1 52.1 118.3 116.9 120v-18.4c0-2.4 2-4.4 4.4-4.4c2.5 0 4.5 2 4.5 4.4v117q-4.5-0.5-8.9-1.2v-20.3h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.4 2-4.4 4.5-4.4h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.5 2-4.5 4.5-4.5h13.9v-23.5c-58.6-1.4-107.6-42-121.7-96.5h-18c-2.5 0-4.5-2-4.5-4.4c0-2.5 2-4.5 4.5-4.5h16c-1.4-7.6-2.1-15.5-2.1-23.5v-3.3h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.4 2-4.4 4.5-4.4h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.4 2-4.4 4.5-4.4h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.4 2-4.4 4.5-4.4h14.2c2.2-16.1 15.9-28.5 32.6-28.5c18.1 0 32.8 14.8 32.8 32.9v2.5h13.9c2.5 0 4.5 2 4.5 4.5c0 2.4-2 4.4-4.5 4.4h-13.9v26.8h13.9c2.5 0 4.5 2 4.5 4.5c0 2.4-2 4.4-4.5 4.4h-13.9v17.8c0 33.7 26.7 61.3 60.1 63v-30.2h-13.9c-2.5 0-4.5-2-4.5-4.4c0-2.5 2-4.5 4.5-4.5h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.4c0-2.5 2-4.5 4.5-4.5h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.4c0-2.5 2-4.5 4.5-4.5h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.4 2-4.4 4.5-4.4h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.4 2-4.4 4.5-4.4h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.4 2-4.4 4.5-4.4h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.5 2-4.4 4.5-4.4h13.9v-26.8h-13.9c-2.5 0-4.5-2-4.5-4.5c0-2.5 2-4.5 4.5-4.5h14.1c2.2-23.9 22.4-42.6 46.9-42.6c26 0 47.1 21.1 47.1 47.1v13.4h13.9c2.4 0 4.4 2 4.4 4.5c0 2.4-2 4.4-4.4 4.4h-13.9v26.8h13.9c2.4 0 4.4 2 4.4 4.5c0 2.4-2 4.4-4.4 4.4h-13.9v26.8h13.9c2.4 0 4.4 2 4.4 4.5c0 2.4-2 4.4-4.4 4.4h-13.9v26.8h13.9c2.4 0 4.4 2 4.4 4.5c0 2.5-2 4.5-4.4 4.5h-13.9v26.7h13.9c2.4 0 4.4 2 4.4 4.5c0 2.5-2 4.5-4.4 4.5h-13.9v26.7h13.9c2.4 0 4.4 2 4.4 4.5c0 2.5-2 4.5-4.4 4.5h-13.9v26.8h13.9c2.4 0 4.4 2 4.4 4.4c0 2.5-2 4.5-4.4 4.5h-13.9v18.2c32.8-2.3 58.7-29.7 58.7-63v-8.8h-13.9c-2.4 0-4.4-2-4.4-4.4c0-2.5 2-4.5 4.4-4.5h13.9v-26.8h-13.9c-2.4 0-4.4-2-4.4-4.5c0-2.4 2-4.4 4.4-4.4h13.9v-26.8h-13.9c-2.4 0-4.4-2-4.4-4.5c0-2.4 2-4.4 4.4-4.4h13.9v-15.5c0-18.2 14.8-32.9 32.9-32.9c17.4 0 31.6 13.5 32.8 30.5h14c2.5 0 4.5 2 4.5 4.5c0 2.4-2 4.4-4.5 4.4h-13.9v26.8h13.9c2.5 0 4.5 2 4.5 4.5c0 2.5-2 4.5-4.5 4.5c0-0.1-13.9-0.1-13.9-0.1z";
+
+    // ── Helper: build one cactus <g> ─────────────────────────────────────────
+    function cactus(x, y, scale) {
+        return `<g class="cactus" style="transform:translate(${x}px,${y}px) scale(${scale});transform-origin:center;transform-box:fill-box;">
+            <path class="c1" d="${C1}"/>
+            <path class="c2" d="${C2}"/>
+            <path class="c3" d="${C3}"/>
+        </g>`;
+    }
+
+    // ── Build the full SVG string ─────────────────────────────────────────────
+    const svg = `
+    <svg id="csVG" viewBox="0 0 2000 720" preserveAspectRatio="xMidYMid slice">
+
+      <!-- Rock columns (depth p3) -->
+      <path id="lp3a" class="rock-cols"
+        d="m1831 198l-8 565l-95 3v-576.3zm-441-42v633.1h-257v-622.1zm-340 36v597.3h-201.7v-596.3zm-246 20v531.7h-53v-534.7zm-136-20v575.1h-153.4v-576.3zm-348 3v574.7h-159v-566.8z"/>
+
+      <!-- Sky / upper background (depth p3) -->
+      <path id="lp3b" class="sky-bg"
+        d="m-203.5 227v-467.6h2433.1v553.6l-399.6-71l-102 29l-335-76l-258 80l-85-30l-202 32l-45-35l-50 19l-84-35l-154 61l-194-58l-160 58z"/>
+
+      <!-- Far background cacti (depth p1, opacity 0.2) -->
+      <g id="lp1" style="opacity:0.2">
+        ${cactus(0,-350,0.1)}  ${cactus(300,-320,0.1)}  ${cactus(520,-360,0.08)}
+        ${cactus(800,-330,0.1)}${cactus(1000,-380,0.08)}${cactus(1150,-350,0.1)}
+        ${cactus(1400,-360,0.1)}
+      </g>
+
+      <!-- Mid-far cacti (depth p2, opacity 0.4) -->
+      <g id="lp2" style="opacity:0.4">
+        ${cactus(80,-300,0.15)} ${cactus(380,-280,0.15)}${cactus(600,-310,0.1)}
+        ${cactus(700,-290,0.15)}${cactus(1100,-320,0.1)}${cactus(1250,-300,0.15)}
+        ${cactus(1500,-310,0.15)}
+      </g>
+
+      <!-- Mid cacti (depth p3, opacity 0.7) -->
+      <g id="lp3c" style="opacity:0.7">
+        ${cactus(-110,-200,0.2)}${cactus(180,-180,0.25)}${cactus(800,-190,0.2)}
+        ${cactus(500,-230,0.15)}${cactus(1300,-220,0.15)}${cactus(1450,-200,0.2)}
+      </g>
+
+      <!-- Horizon fog band (depth p3) -->
+      <path id="lp3d" class="fog-band" style="filter:blur(80px)"
+        d="m-300,400 H2400 V700 H0 z"/>
+
+      <!-- 404 text (depth p4) -->
+      <text id="lp4" class="svg-404" x="1000" y="550" text-anchor="middle">404</text>
+
+      <!-- Foreground ground (depth p5) -->
+      <path id="lp5a" class="fg-ground"
+        d="m2195 396v531.1h-2437.2v-538.1l359.2 60l96-22l63 44l169-40l83 39l348-47l147 28l125-32l75 47l75-21l221 28l263-75l109 31z"/>
+
+      <!-- Foreground cacti (depth p5) -->
+      <g id="lp5b">
+        ${cactus(0,80,0.4)}${cactus(1000,100,0.45)}${cactus(1450,80,0.4)}
+      </g>
+
+      <!-- Near cacti (depth p6, blurred) -->
+      <g id="lp6" style="filter:blur(5px) brightness(0.7)">
+        ${cactus(100,180,0.5)}${cactus(700,200,0.55)}${cactus(1350,250,0.5)}
+      </g>
+
+      <!-- Nearest cacti (depth p7, heavy blur) -->
+      <g id="lp7" style="filter:blur(10px) brightness(0.5)">
+        ${cactus(0,320,0.6)}${cactus(400,280,0.65)}${cactus(1400,350,0.6)}
+      </g>
+
+    </svg>`;
+
+    document.getElementById('canyon-wrap').innerHTML = svg;
+
+    // ── Parallax layer map (depth values match original React version) ────────
+    //   depth > 0 → moves in mouse direction (foreground feel)
+    //   depth < 0 → moves opposite (background feel)
+    const layers = [
+        { ids: ['lp3a', 'lp3b', 'lp3c', 'lp3d'], depth: -80  },
+        { ids: ['lp1'],                             depth: -240 },
+        { ids: ['lp2'],                             depth: -150 },
+        { ids: ['lp4'],                             depth: -20  },
+        { ids: ['lp5a', 'lp5b'],                   depth:  80  },
+        { ids: ['lp6'],                             depth:  150 },
+        { ids: ['lp7'],                             depth:  300 },
+    ];
+
+    document.addEventListener('mousemove', e => {
+        requestAnimationFrame(() => {
+            const nx = e.clientX / window.innerWidth  - 0.5; // -0.5 to 0.5
+            const ny = e.clientY / window.innerHeight - 0.5;
+            layers.forEach(({ ids, depth }) => {
+                const tx = depth * nx;
+                const ty = depth * ny;
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.transform = `translate(${tx}px,${ty}px)`;
+                });
+            });
+        });
+    });
+</script>
+
+</body>
+</html>

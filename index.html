@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Login System</title>
+</head>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        background: linear-gradient(135deg, #21509b 0%, #4a7fe7 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        overflow: hidden;
+    }
+
+    #particle-network {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .card {
+        border-radius: 23px;
+        background: #2d6cd2;
+        box-shadow: 5px 5px 10px #21509b,
+            -5px -5px 10px #21509b;
+        width: 400px;
+        padding: 50px;
+        position: relative;
+        overflow: hidden;
+        z-index: 1;
+    }
+
+    .card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        border-radius: 50%;
+        animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+
+        0%,
+        100% {
+            transform: translateY(0px);
+        }
+
+        50% {
+            transform: translateY(-20px);
+        }
+    }
+
+    .login-container {
+        position: relative;
+        z-index: 1;
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .login-header h1 {
+        color: #ffffff;
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+
+    .login-header p {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 14px;
+    }
+
+    .form-group {
+        margin-bottom: 25px;
+    }
+
+    .form-group label {
+        display: block;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 12px;
+        background: #2d6cd2;
+        color: #ffffff;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        box-shadow: inset 3px 3px 6px #21509b,
+            inset -3px -3px 6px #3988ff;
+    }
+
+    .form-group input::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .form-group input:focus {
+        outline: none;
+        box-shadow: inset 2px 2px 4px #21509b,
+            inset -2px -2px 4px #3988ff,
+            0 0 15px rgba(255, 255, 255, 0.15);
+    }
+
+    .form-options {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        font-size: 13px;
+    }
+
+    .remember-me {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .remember-me input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: #db0a0a;
+        opacity: 0.8;
+    }
+
+    .remember-me label {
+        color: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .forgot-password {
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        transition: color 0.3s ease;
+    }
+
+    .forgot-password:hover {
+        color: #ffffff;
+        text-decoration: underline;
+    }
+
+    .login-btn {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid transparent;
+        border-radius: 50px;
+        background: linear-gradient(#2d6cd2, #2d6cd2) padding-box,
+                    linear-gradient(135deg, #2d6cd2, #2d6cd2, #2d6cd2) border-box;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 20px rgba(57, 136, 255, 0.5),
+                    5px 5px 10px #0a295a,
+                    -3px -3px 8px #3988ff;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .login-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle, rgba(96, 168, 255, 0.3) 0%, transparent 70%);
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            left: -100%;
+        }
+        50% {
+            left: 100%;
+        }
+        100% {
+            left: 100%;
+        }
+    }
+
+    .login-btn:hover {
+        box-shadow: 0 0 30px rgba(57, 136, 255, 0.7),
+                    4px 4px 8px #21509b,
+                    -2px -2px 6px #3988ff;
+    }
+
+    .login-btn:active {
+        box-shadow: inset 3px 3px 6px #21509b,
+                    inset -3px -3px 6px #3988ff,
+                    0 0 20px rgba(57, 136, 255, 0.5);
+    }
+
+    .signup-text {
+        text-align: center;
+        margin-top: 25px;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 13px;
+    }
+
+    .signup-text a {
+        color: #ffffff;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.3s ease;
+    }
+
+    .signup-text a:hover {
+        color: #f0f0f0;
+    }
+
+    .social-login {
+        margin-top: 25px;
+        padding-top: 25px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        gap: 12px;
+    }
+
+    .social-btn {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        border-radius: 10px;
+        background: #2d6cd2;
+        color: #ffffff;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.3s ease;
+        box-shadow: 3px 3px 6px #21509b,
+            -2px -2px 5px #3988ff;
+    }
+
+    .social-btn:hover {
+        box-shadow: 2px 2px 4px #21509b,
+            -1px -1px 3px #3988ff;
+    }
+
+    .social-btn:active {
+        box-shadow: inset 2px 2px 4px #21509b,
+            inset -2px -2px 4px #3988ff;
+    }
+</style>
+
+<body>
+    <canvas id="particle-network"></canvas>
+    <div class="card">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>Hyphen Technology</h1>
+                <p>Sign in to your account</p>
+            </div>
+
+            <form>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Enter your username" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                </div>
+
+                <div class="form-options">
+                    <div class="remember-me">
+                        <input type="checkbox" id="remember" name="remember">
+                        <label for="remember">Remember me</label>
+                    </div>
+                    <a href="#" class="forgot-password">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="login-btn" onclick="window.location.href='pages/template/empty_page'">Sign In</button>
+            </form>
+
+            <div class="signup-text">
+                Don't have an account? <a href="#">Sign up here</a>
+            </div>
+
+            <!-- <div class="social-login">
+                <button class="social-btn">Google</button>
+                <button class="social-btn">GitHub</button>
+                <button class="social-btn">Facebook</button>
+            </div> -->
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('particle-network');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const particles = [];
+        const particleCount = 50;
+        const connectionDistance = 150;
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 1;
+                this.vy = (Math.random() - 0.5) * 1;
+                this.radius = Math.random() * 2 + 1;
+                this.opacity = Math.random() * 0.5 + 0.3;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+
+                this.x = Math.max(0, Math.min(canvas.width, this.x));
+                this.y = Math.max(0, Math.min(canvas.height, this.y));
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(96, 168, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function drawConnections() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < connectionDistance) {
+                        const opacity = (1 - distance / connectionDistance) * 0.3;
+                        ctx.strokeStyle = `rgba(96, 168, 255, ${opacity})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+
+            drawConnections();
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        initParticles();
+        animate();
+    </script>
+</body>
+
+</html>

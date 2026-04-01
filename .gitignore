@@ -1,0 +1,29 @@
+# System files
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build directories
+/vendor
+/node_modules
+/dist
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Cache
+*.cache
+.cache/
+
+# Compiled files
+*.class
+*.o
+*.pyc
