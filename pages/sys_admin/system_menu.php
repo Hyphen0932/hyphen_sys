@@ -23,9 +23,9 @@ include_once '../../include/h_main.php';
                                 aria-current="page" href="#setting-vertical-link" aria-selected="false">
                                 <i class="ri-user-settings-fill side-menu__icon me-2 align-middle d-inline-block"></i>
                                 System Settings</a>
-                            
+
                             <!-- Create new menu item here -->
-                            <a class="nav-link" href="#">
+                            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#exampleModalScrollable3">
                                 <i class="ri-checkbox-multiple-line me-2 align-middle d-inline-block"></i>
                                 Add New Menu
                             </a>
@@ -129,7 +129,7 @@ include_once '../../include/h_main.php';
                                                     </ul>
                                                 </td>
                                             </tr>
-                                            
+
                                         </tbody>
                                         <tfoot>
                                             <td colspan="7" style="text-align: center;">
@@ -139,11 +139,50 @@ include_once '../../include/h_main.php';
                                     </table>
                                 </div>
                             </div>
-                            
+
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Form for add new sidebar -->
+<div class="modal fade" id="exampleModalScrollable3" tabindex="-1" aria-labelledby="exampleModalScrollable3" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalScrollableTitle3">Add New Menu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Category</label>
+                        <input type="text" class="form-control" id="category" name="category" placeholder="Select Category">
+                    </div>
+                    <div class="mb-3">
+                        <label for="link" class="form-label">System Link</label>
+                        <input type="text" class="form-control" id="link" name="link" placeholder="Enter system link">
+                    </div>
+                    <div class="mb-3">
+                        <label for="menu_id" class="form-label">Menu ID</label>
+                        <input type="text" class="form-control" id="menu_id" name="menu_id" placeholder="Enter menu ID">
+                    </div>
+                    <div class="mb-3">
+                        <label for="menu_name" class="form-label">Menu Name</label>
+                        <input type="text" class="form-control" id="menu_name" name="menu_name" placeholder="Enter menu name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="menu_icon" class="form-label">Menu Icon</label>
+                        <input type="text" class="form-control" id="menu_icon" name="menu_icon" placeholder="Enter menu icon">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Add Menu</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
