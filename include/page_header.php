@@ -7,9 +7,8 @@
                 <!-- <h5 class="page-title fs-21 mb-1">Empty</h5> -->
                 <!-- Custom Step Breadcrumb -->
                 <nav aria-label="breadcrumb steps">
-                    <ol class="breadcrumb-steps">
-                        <li class="breadcrumb-steps__item breadcrumb-steps__item--active">Home</li>
-                        <li class="breadcrumb-steps__item breadcrumb-steps">Empty Page</li>
+                    <ol class="breadcrumb-steps" id="breadcrumb-steps" data-max-items="10">
+                        <li class="breadcrumb-steps__item breadcrumb-steps__item--active">Loading...</li>
                     </ol>
                 </nav>
             </div>

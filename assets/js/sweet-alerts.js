@@ -1,33 +1,42 @@
 (function () {
     'use strict';
 
+    function bindClick(id, handler) {
+        var element = document.getElementById(id);
+        if (!element) {
+            return;
+        }
+
+        element.onclick = handler;
+    }
+
     /* for basic sweet alert */
-    document.getElementById('basic-alert').onclick = function () {
+    bindClick('basic-alert', function () {
         Swal.fire('Hello this is Basic alert message')
-    };
-    document.getElementById('alert-text').onclick = function () {
+    });
+    bindClick('alert-text', function () {
         Swal.fire(
             'The Internet ?',
             'That thing is still around ?',
             'question'
         )
-    }
-    document.getElementById('alert-footer').onclick = function () {
+    })
+    bindClick('alert-footer', function () {
         Swal.fire({
             icon: 'error',
             title: 'Oops...',
             text: 'Something went wrong!',
             footer: '<a href="">Why do I have this issue?</a>'
         })
-    }
-    document.getElementById('long-window').onclick = function () {
+    })
+    bindClick('long-window', function () {
         Swal.fire({
             imageUrl: 'https://placeholder.pics/svg/300x1500',
             imageHeight: 1500,
             imageAlt: 'A tall image'
         })
-    }
-    document.getElementById('alert-description').onclick = function () {
+    })
+    bindClick('alert-description', function () {
         Swal.fire({
             title: '<strong>HTML <u>example</u></strong>',
             icon: 'info',
@@ -45,8 +54,8 @@
                 '<i class="fe fe-thumbs-down"></i>',
             cancelButtonAriaLabel: 'Thumbs down'
         })
-    }
-    document.getElementById('three-buttons').onclick = function () {
+    })
+    bindClick('three-buttons', function () {
         Swal.fire({
             title: 'Do you want to save the changes?',
             showDenyButton: true,
@@ -61,8 +70,8 @@
                 Swal.fire('Changes are not saved', '', 'info')
             }
         })
-    }
-    document.getElementById('alert-dialog').onclick = function () {
+    })
+    bindClick('alert-dialog', function () {
         Swal.fire({
             position: 'top-end',
             icon: 'success',
@@ -70,8 +79,8 @@
             showConfirmButton: false,
             timer: 1500
         })
-    }
-    document.getElementById('alert-confirm').onclick = function () {
+    })
+    bindClick('alert-confirm', function () {
         Swal.fire({
             title: 'Are you sure?',
             text: "You won't be able to revert this!",
@@ -89,8 +98,8 @@
                 )
             }
         })
-    }
-    document.getElementById('alert-parameter').onclick = function () {
+    })
+    bindClick('alert-parameter', function () {
         const swalWithBootstrapButtons = Swal.mixin({
             customClass: {
                 confirmButton: 'btn btn-success ms-2',
@@ -125,8 +134,8 @@
                 )
             }
         })
-    }
-    document.getElementById('alert-image').onclick = function () {
+    })
+    bindClick('alert-image', function () {
         Swal.fire({
             title: 'Sweet!',
             text: 'Modal with a custom image.',
@@ -135,8 +144,8 @@
             imageHeight: 200,
             imageAlt: 'Custom image',
         })
-    }
-    document.getElementById('alert-custom-bg').onclick = function () {
+    })
+    bindClick('alert-custom-bg', function () {
         Swal.fire({
             title: 'Custom width, padding, color, background.',
             width: 600,
@@ -150,8 +159,8 @@
               no-repeat
             `
         })
-    }
-    document.getElementById('alert-auto-close').onclick = function () {
+    })
+    bindClick('alert-auto-close', function () {
         let timerInterval
         Swal.fire({
             title: 'Auto close alert!',
@@ -174,8 +183,8 @@
                 console.log('I was closed by the timer')
             }
         })
-    }
-    document.getElementById('alert-ajax').onclick = function () {
+    })
+    bindClick('alert-ajax', function () {
         Swal.fire({
             title: 'Submit your Github username',
             input: 'text',
@@ -208,7 +217,7 @@
                 })
             }
         })
-    }
+    })
 
 
 })();
