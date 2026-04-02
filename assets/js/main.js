@@ -55,11 +55,15 @@
             let layoutValue = localStorage.getItem('valexlayout');
             html.setAttribute('data-nav-layout', 'horizontal');
             setTimeout(() => {
-                clearNavDropdown();
+                if (typeof clearNavDropdown === 'function') {
+                    clearNavDropdown();
+                }
             }, 5000);
             html.setAttribute('data-nav-style', 'menu-click');
             setTimeout(() => {
-                checkHoriMenu();
+                if (typeof checkHoriMenu === 'function') {
+                    checkHoriMenu();
+                }
             }, 5000);
         }
         if (localStorage.valexverticalstyles) {

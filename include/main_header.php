@@ -44,5 +44,7 @@
 
     <!-- Custom Breadcrumb Steps Css -->
     <link rel="stylesheet" href="../../assets/css/breadcrumb-custom.css">
+    <!-- Sweetalerts CSS -->
+    <link rel="stylesheet" href="../../assets/libs/sweetalert2/sweetalert2.min.css">
 
 </head>

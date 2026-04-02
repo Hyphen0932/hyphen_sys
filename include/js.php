@@ -54,6 +54,10 @@
   <!-- Custom-Switcher JS -->
   <script src="../../assets/js/custom-switcher.min.js"></script>
 
+  <!-- Sweetalerts JS -->
+  <script src="../../assets/libs/sweetalert2/sweetalert2.min.js"></script>
+  <script src="../../assets/js/sweet-alerts.js"></script>
+
   <!-- Custom JS -->
   <script src="../../assets/js/custom.js"></script>
 
