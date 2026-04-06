@@ -1,8 +1,60 @@
 <?php
+include_once '../../build/config.php';
+
+$users = [];
+$dbError = null;
+
+$userResult = mysqli_query($conn, 'SELECT id, username, staff_id, email, phone, designation, role, status, image_url, created_at FROM hy_users ORDER BY id DESC');
+if ($userResult === false) {
+    $dbError = 'Unable to load user records from hy_users.';
+} else {
+    while ($row = mysqli_fetch_assoc($userResult)) {
+        $users[] = $row;
+    }
+}
+
+function system_user_image_path(?string $imageUrl): string
+{
+    $imageUrl = trim((string) $imageUrl);
+    $defaultPath = '../../assets/user_image/00000.jpg';
+
+    if ($imageUrl === '') {
+        return $defaultPath;
+    }
+
+    $absolutePath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'user_image' . DIRECTORY_SEPARATOR . basename($imageUrl);
+    if (!is_file($absolutePath)) {
+        return $defaultPath;
+    }
+
+    return '../../assets/user_image/' . rawurlencode(basename($imageUrl));
+}
+
+function system_user_status_badge(string $status): array
+{
+    $normalized = strtolower(trim($status));
+    $isActive = in_array($normalized, ['1', 'active', 'enabled', 'enable', 'on'], true);
+
+    return [
+        'class' => $isActive ? 'bg-success-transparent text-success' : 'bg-danger-transparent text-danger',
+        'label' => $normalized === '1' ? 'Active' : ucfirst($status !== '' ? $status : 'Unknown'),
+    ];
+}
+
 include_once '../../include/h_main.php';
 include_once '../../include/h_cstable.php';
 ?>
 <!-- Start::content -->
+<?php if ($dbError !== null): ?>
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Database Error:</strong> <?php echo htmlspecialchars($dbError); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 <div class="row">
     <div class="col-xl-9">
         <div class="card custom-card">
@@ -18,33 +70,50 @@ include_once '../../include/h_cstable.php';
                             <tr>
                                 <th style="width:5%;">S/N</th>
                                 <th style="width:5%;">User Image</th>
+                                <th>Email</th>
                                 <th>User ID</th>
                                 <th>User Name</th>
                                 <th>User Role</th>
+                                <th>Status</th>
                                 <th style="width:5%;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td class="text-center align-middle">
-                                    <div class="d-flex align-items-center justify-content-center">
-                                        <span class="avatar avatar-lg me-2 online avatar-rounded">
-                                            <img src="../../assets/user_image/00001.jpg" alt="">
-                                        </span>
-                                    </div>
-                                </td>
-                                <td>00001</td>
-                                <td>Steve Ding</td>
-                                <td>System Admin</td>
-                                <td>
-                                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Action</button>
-                                    <ul class="dropdown-menu">
-                                        <li><a class="dropdown-item" href="javascript:void(0);">Edit</a></li>
-                                        <li><a class="dropdown-item" href="javascript:void(0);">Delete</a></li>
-                                    </ul>
-                                </td>
-                            </tr>
+                            <?php if (!empty($users)): ?>
+                                <?php foreach ($users as $index => $user): ?>
+                                    <?php $statusBadge = system_user_status_badge((string) ($user['status'] ?? '')); ?>
+                                    <tr>
+                                        <td><?php echo $index + 1; ?></td>
+                                        <td class="text-center align-middle">
+                                            <div class="d-flex align-items-center justify-content-center">
+                                                <span class="avatar avatar-lg me-2 online avatar-rounded">
+                                                    <img src="<?php echo htmlspecialchars(system_user_image_path($user['image_url'] ?? '')); ?>" alt="<?php echo htmlspecialchars($user['username'] ?? ''); ?>">
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td><?php echo htmlspecialchars((string) ($user['email'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars((string) ($user['staff_id'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars((string) ($user['username'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars((string) ($user['role'] ?? '')); ?></td>
+                                        <td>
+                                            <span class="badge <?php echo htmlspecialchars($statusBadge['class']); ?>">
+                                                <?php echo htmlspecialchars($statusBadge['label']); ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Action</button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="system_users_edit.php?id=<?php echo (int) ($user['id'] ?? 0); ?>">Edit</a></li>
+                                                <li><span class="dropdown-item disabled">Delete</span></li>
+                                            </ul>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="8" class="text-center">No user records found.</td>
+                                </tr>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
@@ -56,15 +125,14 @@ include_once '../../include/h_cstable.php';
             <div class="card-header">
                 <ul class="nav nav-pills card-header-pills ms-1">
                     <li class="nav-item">
-                        <a class="nav-link active" href="javascript:void(0);">Add New User</a>
+                        <a class="nav-link active" href="system_users_new.php">Add New User</a>
                     </li>
                 </ul>
             </div>
             <div class="card-body">
-                <h6 class="card-title fw-semibold">Special title treatment</h6>
-                <p class="card-text">With supporting text below as a natural lead-in to
-                    additional content.</p>
-                <a href="javascript:void(0);" class="btn btn-primary">Save</a>
+                <h6 class="card-title fw-semibold">Create New User</h6>
+                <p class="card-text">Use the existing user form to create a new account and assign page permissions.</p>
+                <a href="system_users_new.php" class="btn btn-primary">Add New User</a>
             </div>
         </div>
     </div>
@@ -84,7 +152,7 @@ include_once '../../include/h_jstable.php';
                 sSearch: '',
             },
             "pageLength": 10,
-            // scrollX: true
+            scrollX: true,
             columnDefs: [{
                 targets: [1],
                 className: 'text-center align-middle',

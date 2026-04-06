@@ -3,6 +3,35 @@ include_once __DIR__ . '/../build/config.php';
 
 $sidebarMenus = [];
 $sidebarPagesByMenu = [];
+$sidebarAllowedMenuIds = [];
+$sidebarAllowedPageIds = [];
+
+if (isset($_SESSION['menu_rights']) && is_array($_SESSION['menu_rights'])) {
+    foreach ($_SESSION['menu_rights'] as $menuId) {
+        $menuId = trim((string) $menuId);
+        if ($menuId !== '') {
+            $sidebarAllowedMenuIds[] = $menuId;
+        }
+    }
+
+    $sidebarAllowedMenuIds = array_values(array_unique($sidebarAllowedMenuIds));
+}
+
+if (!empty($_SESSION['staff_id'])) {
+    $permissionStatement = mysqli_prepare($conn, 'SELECT page_id FROM hy_user_permissions WHERE staff_id = ? AND can_view = 1');
+    if ($permissionStatement) {
+        $staffId = (string) $_SESSION['staff_id'];
+        mysqli_stmt_bind_param($permissionStatement, 's', $staffId);
+        mysqli_stmt_execute($permissionStatement);
+        $permissionResult = mysqli_stmt_get_result($permissionStatement);
+
+        while ($permissionResult && ($row = mysqli_fetch_assoc($permissionResult))) {
+            $sidebarAllowedPageIds[] = (int) ($row['page_id'] ?? 0);
+        }
+
+        mysqli_stmt_close($permissionStatement);
+    }
+}
 
 $menuResult = mysqli_query($conn, 'SELECT id, category, link, menu_id, menu_name, menu_icon FROM hy_user_menu');
 if ($menuResult !== false) {
@@ -55,6 +84,29 @@ function sidebar_normalize_page_url(?string $pageUrl): string
     return $pageUrl;
 }
 
+function sidebar_is_group_placeholder(array $page): bool
+{
+    $pageUrl = sidebar_normalize_page_url($page['page_url'] ?? '');
+    $pageName = trim((string) ($page['page_name'] ?? ''));
+
+    return $pageUrl === '' && $pageName === '';
+}
+
+function sidebar_tree_has_entries(array $tree): bool
+{
+    if (!empty($tree['direct'])) {
+        return true;
+    }
+
+    foreach ($tree['groups'] as $group) {
+        if (!empty($group['children'])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function sidebar_build_menu_tree(array $pages): array
 {
     $tree = [
@@ -66,9 +118,7 @@ function sidebar_build_menu_tree(array $pages): array
         $pageOrder = (string) ($page['page_order'] ?? '');
         $segments = $pageOrder === '' ? [] : explode('.', $pageOrder);
         $groupKey = count($segments) >= 2 ? $segments[0] . '.' . $segments[1] : $pageOrder;
-        $pageUrl = sidebar_normalize_page_url($page['page_url'] ?? '');
-        $pageName = trim((string) ($page['page_name'] ?? ''));
-        $isGroup = $pageUrl === '' && $pageName === '';
+        $isGroup = sidebar_is_group_placeholder($page);
 
         if ($isGroup) {
             $tree['groups'][$groupKey] = [
@@ -108,16 +158,32 @@ function sidebar_build_menu_tree(array $pages): array
                     <?php $currentCategory = null; ?>
                     <?php foreach ($sidebarMenus as $menu): ?>
                         <?php
+                        $menuId = (string) ($menu['menu_id'] ?? '');
+                        if (!in_array($menuId, $sidebarAllowedMenuIds, true)) {
+                            continue;
+                        }
+
                         $menuCategory = trim((string) ($menu['category'] ?? 'Uncategorized'));
                         $menuCategory = $menuCategory === '' ? 'Uncategorized' : $menuCategory;
-                        $menuTree = sidebar_build_menu_tree($sidebarPagesByMenu[(string) ($menu['menu_id'] ?? '')] ?? []);
+                        $menuPages = [];
+                        foreach (($sidebarPagesByMenu[$menuId] ?? []) as $page) {
+                            $pageId = (int) ($page['id'] ?? 0);
+                            if (sidebar_is_group_placeholder($page) || in_array($pageId, $sidebarAllowedPageIds, true)) {
+                                $menuPages[] = $page;
+                            }
+                        }
+
+                        $menuTree = sidebar_build_menu_tree($menuPages);
+                        if (!sidebar_tree_has_entries($menuTree)) {
+                            continue;
+                        }
                         ?>
                         <?php if ($currentCategory !== $menuCategory): ?>
                             <?php $currentCategory = $menuCategory; ?>
                             <li class="slide__category"><span class="category-name"><?php echo htmlspecialchars($menuCategory); ?></span></li>
                         <?php endif; ?>
 
-                        <li class="slide has-sub" data-menu-id="<?php echo htmlspecialchars((string) ($menu['menu_id'] ?? '')); ?>">
+                        <li class="slide has-sub" data-menu-id="<?php echo htmlspecialchars($menuId); ?>">
                             <a href="javascript:void(0);" class="side-menu__item">
                                 <i class="<?php echo htmlspecialchars((string) ($menu['menu_icon'] ?: 'ri-folder-line')); ?> side-menu__icon"></i>
                                 <span class="side-menu__label"><?php echo htmlspecialchars((string) ($menu['menu_name'] ?? '')); ?></span>
@@ -132,6 +198,7 @@ function sidebar_build_menu_tree(array $pages): array
                                 <?php endforeach; ?>
 
                                 <?php foreach ($menuTree['groups'] as $group): ?>
+                                    <?php if (empty($group['children'])) { continue; } ?>
                                     <li class="slide has-sub">
                                         <a href="javascript:void(0);" class="side-menu__item">
                                             <?php echo htmlspecialchars((string) ($group['page']['display_name'] ?? '')); ?>

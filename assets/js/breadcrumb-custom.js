@@ -2,10 +2,12 @@
 
 (function () {
   var breadcrumb = document.getElementById('breadcrumb-steps');
+  var resetButton = document.getElementById('breadcrumb-reset-button');
   var storageKey = 'hyphen_breadcrumb_history';
   var maxItems = 10;
   var mobileBreakpoint = 768;
   var appBasePath = resolveAppBasePath();
+  var registeredEntries = getRegisteredSidebarEntries();
   var homeEntry = {
     url: appBasePath + '/pages/home/user_dashboard',
     label: 'Home'
@@ -62,17 +64,25 @@
     }
   });
 
+  if (resetButton) {
+    resetButton.addEventListener('click', function () {
+      writeHistory([]);
+      renderHistory([], null);
+    });
+  }
+
   function buildCurrentEntry() {
     var currentUrl = window.location.pathname + window.location.search;
-    var label = resolveCurrentLabel();
+    var normalizedCurrentUrl = normalizePath(currentUrl);
+    var registeredEntry = registeredEntries[normalizedCurrentUrl] || null;
 
-    if (!label) {
-      label = resolveLabelFromPath(window.location.pathname);
+    if (!registeredEntry) {
+      return null;
     }
 
     var entry = {
       url: currentUrl,
-      label: label
+      label: registeredEntry.label
     };
 
     if (normalizePath(entry.url) === normalizePath(homeEntry.url)) {
@@ -103,6 +113,33 @@
     return document.title ? document.title.trim() : '';
   }
 
+  function getRegisteredSidebarEntries() {
+    var entries = {};
+    var sidebarLinks = document.querySelectorAll('.app-sidebar .side-menu__item[data-page-url]');
+
+    for (var index = 0; index < sidebarLinks.length; index += 1) {
+      var sidebarLink = sidebarLinks[index];
+      var normalizedUrl = normalizePath(sidebarLink.getAttribute('data-page-url') || '');
+      var label = sidebarLink.textContent ? sidebarLink.textContent.trim() : '';
+
+      if (!normalizedUrl || !label) {
+        continue;
+      }
+
+      entries[normalizedUrl] = {
+        url: buildSidebarTargetUrl(normalizedUrl),
+        label: label
+      };
+    }
+
+    return entries;
+  }
+
+  function buildSidebarTargetUrl(normalizedUrl) {
+    var safePath = String(normalizedUrl || '').replace(/^\/+/, '');
+    return appBasePath + '/pages/' + safePath;
+  }
+
   function normalizePath(value) {
     var normalized = String(value || '').replace(/\\/g, '/').trim();
     normalized = normalized.replace(/^https?:\/\/[^/]+/i, '');
@@ -125,21 +162,11 @@
     return pathname.substring(0, markerIndex);
   }
 
-  function resolveLabelFromPath(pathname) {
-    var normalized = String(pathname || '').replace(/\\/g, '/');
-    var lastSegment = normalized.split('/').filter(Boolean).pop() || 'Home';
-    lastSegment = lastSegment.replace(/\.php$/i, '').replace(/[-_]+/g, ' ');
-
-    return lastSegment.replace(/\b\w/g, function (character) {
-      return character.toUpperCase();
-    });
-  }
-
   function readHistory() {
     try {
       var raw = window.localStorage.getItem(storageKey);
       var parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed.filter(isValidEntry) : [];
+      return Array.isArray(parsed) ? parsed.filter(isValidEntry).filter(isRegisteredEntry) : [];
     } catch (error) {
       return [];
     }
@@ -167,6 +194,10 @@
 
   function isValidEntry(entry) {
     return entry && typeof entry.url === 'string' && typeof entry.label === 'string' && entry.url !== '' && entry.label !== '';
+  }
+
+  function isRegisteredEntry(entry) {
+    return !!registeredEntries[normalizePath(entry.url)];
   }
 
   function renderHistory(historyItems, currentItem) {
