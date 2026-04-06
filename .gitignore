@@ -27,3 +27,6 @@ Thumbs.db
 *.class
 *.o
 *.pyc
+
+# System documents
+/pages/sys_docs/

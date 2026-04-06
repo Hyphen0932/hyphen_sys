@@ -1,5 +1,6 @@
 <?php
 include_once '../../../build/config.php';
+include_once '../../../build/authorization.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -56,6 +57,15 @@ switch ($action) {
 function posted_value(string $key): string
 {
 	return trim((string) ($_POST[$key] ?? ''));
+}
+
+function posted_checkbox_value(string $key, int $default = 0): int
+{
+	if (!isset($_POST[$key])) {
+		return $default;
+	}
+
+	return $_POST[$key] === '1' ? 1 : 0;
 }
 
 function normalize_path(string $value): string
@@ -180,6 +190,46 @@ function require_menu_exists(mysqli $conn, string $menuId): void
 	}
 
 	mysqli_stmt_close($statement);
+}
+
+function validate_required_ability(string $ability): string
+{
+	$ability = strtolower(trim($ability));
+	if (!in_array($ability, ['view', 'add', 'edit', 'delete'], true)) {
+		return 'view';
+	}
+
+	return $ability;
+}
+
+function validate_permission_target_page_id(mysqli $conn, string $pageId): ?int
+{
+	$pageId = trim($pageId);
+	if ($pageId === '') {
+		return null;
+	}
+
+	$targetPageId = (int) $pageId;
+	if ($targetPageId <= 0) {
+		json_response(false, 'Invalid permission target page.', [], 422);
+	}
+
+	$statement = mysqli_prepare($conn, 'SELECT id FROM hy_user_pages WHERE id = ? LIMIT 1');
+	if (!$statement) {
+		json_response(false, 'Failed to validate permission target page.', [], 500);
+	}
+
+	mysqli_stmt_bind_param($statement, 'i', $targetPageId);
+	mysqli_stmt_execute($statement);
+	mysqli_stmt_store_result($statement);
+
+	if (mysqli_stmt_num_rows($statement) === 0) {
+		mysqli_stmt_close($statement);
+		json_response(false, 'Selected permission target page does not exist.', [], 404);
+	}
+
+	mysqli_stmt_close($statement);
+	return $targetPageId;
 }
 
 function add_menu(mysqli $conn): void
@@ -348,11 +398,16 @@ function delete_menu(mysqli $conn): void
 
 function add_page(mysqli $conn): void
 {
+	$features = hyphen_page_schema_features($conn);
 	$menuId = posted_value('menu_id');
 	$displayName = posted_value('display_name');
 	$pageUrl = normalize_path(posted_value('page_url'));
 	$pageName = posted_value('page_name');
 	$pageOrder = posted_value('page_order');
+	$requiredAbility = validate_required_ability(posted_value('required_ability'));
+	$permissionTargetPageId = validate_permission_target_page_id($conn, posted_value('permission_target_page_id'));
+	$showInSidebar = posted_checkbox_value('show_in_sidebar', 0);
+	$showInBreadcrumb = posted_checkbox_value('show_in_breadcrumb', 0);
 
 	if ($menuId === '' || $displayName === '' || $pageOrder === '') {
 		json_response(false, 'Display name and page order are required.', [], 422);
@@ -368,13 +423,21 @@ function add_page(mysqli $conn): void
 	require_menu_exists($conn, $menuId);
 	mysqli_begin_transaction($conn);
 
-	$statement = mysqli_prepare($conn, 'INSERT INTO hy_user_pages (menu_id, display_name, page_name, page_url, page_order) VALUES (?, ?, ?, ?, ?)');
+	if ($features['permission_target_page_id'] && $features['required_ability'] && $features['show_in_sidebar'] && $features['show_in_breadcrumb']) {
+		$statement = mysqli_prepare($conn, 'INSERT INTO hy_user_pages (menu_id, display_name, page_name, page_url, page_order, permission_target_page_id, required_ability, show_in_sidebar, show_in_breadcrumb) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+	} else {
+		$statement = mysqli_prepare($conn, 'INSERT INTO hy_user_pages (menu_id, display_name, page_name, page_url, page_order) VALUES (?, ?, ?, ?, ?)');
+	}
 	if (!$statement) {
 		mysqli_rollback($conn);
 		json_response(false, 'Failed to prepare submenu insert.', [], 500);
 	}
 
-	mysqli_stmt_bind_param($statement, 'sssss', $menuId, $displayName, $pageName, $pageUrl, $pageOrder);
+	if ($features['permission_target_page_id'] && $features['required_ability'] && $features['show_in_sidebar'] && $features['show_in_breadcrumb']) {
+		mysqli_stmt_bind_param($statement, 'sssssisii', $menuId, $displayName, $pageName, $pageUrl, $pageOrder, $permissionTargetPageId, $requiredAbility, $showInSidebar, $showInBreadcrumb);
+	} else {
+		mysqli_stmt_bind_param($statement, 'sssss', $menuId, $displayName, $pageName, $pageUrl, $pageOrder);
+	}
 	if (!mysqli_stmt_execute($statement)) {
 		$error = mysqli_stmt_error($statement);
 		mysqli_stmt_close($statement);
@@ -397,12 +460,17 @@ function add_page(mysqli $conn): void
 
 function update_page(mysqli $conn): void
 {
+	$features = hyphen_page_schema_features($conn);
 	$id = (int) posted_value('id');
 	$menuId = posted_value('menu_id');
 	$displayName = posted_value('display_name');
 	$pageUrl = normalize_path(posted_value('page_url'));
 	$pageName = posted_value('page_name');
 	$pageOrder = posted_value('page_order');
+	$requiredAbility = validate_required_ability(posted_value('required_ability'));
+	$permissionTargetPageId = validate_permission_target_page_id($conn, posted_value('permission_target_page_id'));
+	$showInSidebar = posted_checkbox_value('show_in_sidebar', 0);
+	$showInBreadcrumb = posted_checkbox_value('show_in_breadcrumb', 0);
 
 	if ($id <= 0 || $menuId === '' || $displayName === '' || $pageOrder === '') {
 		json_response(false, 'Invalid submenu payload.', [], 422);
@@ -417,12 +485,20 @@ function update_page(mysqli $conn): void
 
 	require_menu_exists($conn, $menuId);
 
-	$statement = mysqli_prepare($conn, 'UPDATE hy_user_pages SET menu_id = ?, display_name = ?, page_name = ?, page_url = ?, page_order = ? WHERE id = ?');
+	if ($features['permission_target_page_id'] && $features['required_ability'] && $features['show_in_sidebar'] && $features['show_in_breadcrumb']) {
+		$statement = mysqli_prepare($conn, 'UPDATE hy_user_pages SET menu_id = ?, display_name = ?, page_name = ?, page_url = ?, page_order = ?, permission_target_page_id = ?, required_ability = ?, show_in_sidebar = ?, show_in_breadcrumb = ? WHERE id = ?');
+	} else {
+		$statement = mysqli_prepare($conn, 'UPDATE hy_user_pages SET menu_id = ?, display_name = ?, page_name = ?, page_url = ?, page_order = ? WHERE id = ?');
+	}
 	if (!$statement) {
 		json_response(false, 'Failed to prepare submenu update.', [], 500);
 	}
 
-	mysqli_stmt_bind_param($statement, 'sssssi', $menuId, $displayName, $pageName, $pageUrl, $pageOrder, $id);
+	if ($features['permission_target_page_id'] && $features['required_ability'] && $features['show_in_sidebar'] && $features['show_in_breadcrumb']) {
+		mysqli_stmt_bind_param($statement, 'sssssisiii', $menuId, $displayName, $pageName, $pageUrl, $pageOrder, $permissionTargetPageId, $requiredAbility, $showInSidebar, $showInBreadcrumb, $id);
+	} else {
+		mysqli_stmt_bind_param($statement, 'sssssi', $menuId, $displayName, $pageName, $pageUrl, $pageOrder, $id);
+	}
 	if (!mysqli_stmt_execute($statement)) {
 		$error = mysqli_stmt_error($statement);
 		mysqli_stmt_close($statement);

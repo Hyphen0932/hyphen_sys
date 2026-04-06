@@ -1,5 +1,6 @@
 <?php
 include_once '../../build/config.php';
+include_once '../../build/session.php';
 
 $defaultProfileImage = '../../assets/user_image/00000.jpg';
 
@@ -134,8 +135,8 @@ function system_user_image_path(?string $imageUrl): string
 function status_option_list(string $currentStatus): array
 {
     $options = [
-        '1' => 'Active',
-        '0' => 'Inactive',
+        'active' => 'Active',
+        'deactivated' => 'Deactivated',
     ];
 
     if ($currentStatus !== '' && !array_key_exists($currentStatus, $options)) {
@@ -159,7 +160,7 @@ include_once '../../include/h_main.php';
 </div>
 <div class="row">
     <div class="col-12">
-        <a href="system_users.php" class="btn btn-primary">Back to User List</a>
+        <a href="system_users" class="btn btn-primary">Back to User List</a>
     </div>
 </div>
 <?php else: ?>
@@ -371,7 +372,7 @@ include_once '../../include/h_main.php';
         </div>
         <div class="col-12">
             <div class="d-flex flex-column flex-sm-row justify-content-end gap-2 mb-4">
-                <a href="system_users.php" class="btn btn-light">Back</a>
+                <a href="system_users" class="btn btn-light">Back</a>
                 <button type="reset" class="btn btn-outline-secondary" id="resetUserForm">Reset</button>
                 <button type="submit" class="btn btn-primary" id="saveUserButton">Update User</button>
             </div>
@@ -385,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const imageInput = document.getElementById('userImageInput');
     const previewImage = document.getElementById('profilePreview');
     const resetButton = document.getElementById('resetUserForm');
-    const crudUrl = './action/sys_users_crud.php';
+    const crudUrl = './action/sys_users_crud';
     const originalPreviewSrc = previewImage ? previewImage.getAttribute('src') : '<?php echo htmlspecialchars($defaultProfileImage, ENT_QUOTES); ?>';
 
     document.querySelectorAll('.menu-toggle').forEach(function(toggle) {
@@ -447,7 +448,7 @@ document.addEventListener('DOMContentLoaded', function() {
             postRequest(formData)
                 .then(function(payload) {
                     showSuccess(payload.message || 'User updated successfully.').then(function() {
-                        window.location.href = 'system_users.php';
+                        window.location.href = 'system_users';
                     });
                 })
                 .catch(function(error) {

@@ -7,7 +7,7 @@
   var maxItems = 10;
   var mobileBreakpoint = 768;
   var appBasePath = resolveAppBasePath();
-  var registeredEntries = getRegisteredSidebarEntries();
+  var registeredEntries = getRegisteredBreadcrumbEntries();
   var homeEntry = {
     url: appBasePath + '/pages/home/user_dashboard',
     label: 'Home'
@@ -113,7 +113,19 @@
     return document.title ? document.title.trim() : '';
   }
 
-  function getRegisteredSidebarEntries() {
+  function getRegisteredBreadcrumbEntries() {
+    var registryScript = document.getElementById('hyphen-page-registry');
+    if (registryScript && registryScript.textContent) {
+      try {
+        var parsedRegistry = JSON.parse(registryScript.textContent);
+        if (parsedRegistry && typeof parsedRegistry === 'object') {
+          return parsedRegistry;
+        }
+      } catch (error) {
+        // Ignore invalid registry JSON and fall back to sidebar links.
+      }
+    }
+
     var entries = {};
     var sidebarLinks = document.querySelectorAll('.app-sidebar .side-menu__item[data-page-url]');
 
@@ -121,8 +133,9 @@
       var sidebarLink = sidebarLinks[index];
       var normalizedUrl = normalizePath(sidebarLink.getAttribute('data-page-url') || '');
       var label = sidebarLink.textContent ? sidebarLink.textContent.trim() : '';
+      var breadcrumbVisible = (sidebarLink.getAttribute('data-breadcrumb-visible') || '1') !== '0';
 
-      if (!normalizedUrl || !label) {
+      if (!normalizedUrl || !label || !breadcrumbVisible) {
         continue;
       }
 

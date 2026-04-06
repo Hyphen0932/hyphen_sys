@@ -1,9 +1,12 @@
 <?php
 include_once '../../build/config.php';
+include_once '../../build/session.php';
 
 $menus = [];
 $pagesByMenu = [];
+$pageOptions = [];
 $dbError = null;
+$pageSchemaFeatures = hyphen_page_schema_features($conn);
 
 $menuResult = mysqli_query($conn, "SELECT id, category, link, menu_id, menu_name, menu_icon, created_at FROM hy_user_menu");
 if ($menuResult === false) {
@@ -19,12 +22,37 @@ if ($menuResult === false) {
 }
 
 if ($dbError === null) {
-    $pageResult = mysqli_query($conn, "SELECT id, menu_id, display_name, page_name, page_url, page_order, created_at FROM hy_user_pages");
+    $pageSelect = 'SELECT id, menu_id, display_name, page_name, page_url, page_order, created_at';
+    if ($pageSchemaFeatures['permission_target_page_id']) {
+        $pageSelect .= ', permission_target_page_id';
+    } else {
+        $pageSelect .= ', NULL AS permission_target_page_id';
+    }
+    if ($pageSchemaFeatures['required_ability']) {
+        $pageSelect .= ', required_ability';
+    } else {
+        $pageSelect .= ", 'view' AS required_ability";
+    }
+    if ($pageSchemaFeatures['show_in_sidebar']) {
+        $pageSelect .= ', show_in_sidebar';
+    } else {
+        $pageSelect .= ', 1 AS show_in_sidebar';
+    }
+    if ($pageSchemaFeatures['show_in_breadcrumb']) {
+        $pageSelect .= ', show_in_breadcrumb';
+    } else {
+        $pageSelect .= ', 1 AS show_in_breadcrumb';
+    }
+
+    $pageResult = mysqli_query($conn, $pageSelect . ' FROM hy_user_pages');
     if ($pageResult === false) {
         $dbError = 'Unable to load submenu records from hy_user_pages.';
     } else {
         while ($row = mysqli_fetch_assoc($pageResult)) {
             $menuId = (string) $row['menu_id'];
+            if (!empty($row['page_url'])) {
+                $pageOptions[(int) ($row['id'] ?? 0)] = trim((string) ($row['display_name'] ?? '')) . ' [' . format_page_path((string) ($row['page_url'] ?? '')) . ']';
+            }
             if (!isset($pagesByMenu[$menuId])) {
                 $pagesByMenu[$menuId] = [];
             }
@@ -51,6 +79,16 @@ function format_page_path(?string $pageUrl): string
     return ltrim(str_replace('\\', '/', $pageUrl), '/');
 }
 
+function page_ability_label(?string $ability): string
+{
+    $ability = strtolower(trim((string) $ability));
+    if (!in_array($ability, ['view', 'add', 'edit', 'delete'], true)) {
+        $ability = 'view';
+    }
+
+    return ucfirst($ability);
+}
+
 include_once '../../include/h_main.php';
 ?>
 <?php if ($dbError !== null): ?>
@@ -64,7 +102,7 @@ include_once '../../include/h_main.php';
 </div>
 <?php endif; ?>
 <div class="row">
-    <div class="col-xxl-9">
+    <div class="col-xxl-12">
         <div class="card custom-card">
             <div class="card-header">
                 <div class="card-title">
@@ -109,6 +147,10 @@ include_once '../../include/h_main.php';
                                                         <th>Page URL</th>
                                                         <th>File Name</th>
                                                         <th>Page Order</th>
+                                                        <th>Ability</th>
+                                                        <th>Target</th>
+                                                        <th>Sidebar</th>
+                                                        <th>Breadcrumb</th>
                                                         <th style="text-align: center;">Actions</th>
                                                     </tr>
                                                 </thead>
@@ -121,12 +163,20 @@ include_once '../../include/h_main.php';
                                                                 data-display-name="<?php echo htmlspecialchars($page['display_name'] ?? '', ENT_QUOTES); ?>"
                                                                 data-page-url="<?php echo htmlspecialchars($page['page_url'] ?? '', ENT_QUOTES); ?>"
                                                                 data-page-name="<?php echo htmlspecialchars($page['page_name'] ?? '', ENT_QUOTES); ?>"
-                                                                data-page-order="<?php echo htmlspecialchars($page['page_order'] ?? '', ENT_QUOTES); ?>">
+                                                                data-page-order="<?php echo htmlspecialchars($page['page_order'] ?? '', ENT_QUOTES); ?>"
+                                                                data-required-ability="<?php echo htmlspecialchars((string) ($page['required_ability'] ?? 'view'), ENT_QUOTES); ?>"
+                                                                data-permission-target-page-id="<?php echo (int) ($page['permission_target_page_id'] ?? 0); ?>"
+                                                                data-show-in-sidebar="<?php echo ((int) ($page['show_in_sidebar'] ?? 1) === 1) ? '1' : '0'; ?>"
+                                                                data-show-in-breadcrumb="<?php echo ((int) ($page['show_in_breadcrumb'] ?? 1) === 1) ? '1' : '0'; ?>">
                                                                 <td><?php echo $rowIndex + 1; ?></td>
                                                                 <td><?php echo htmlspecialchars($page['display_name'] ?? ''); ?></td>
                                                                 <td><?php echo htmlspecialchars(format_page_path($page['page_url'] ?? '')); ?></td>
                                                                 <td><?php echo htmlspecialchars($page['page_name'] ?? ''); ?></td>
                                                                 <td><?php echo htmlspecialchars($page['page_order'] ?? ''); ?></td>
+                                                                <td><?php echo htmlspecialchars(page_ability_label($page['required_ability'] ?? 'view')); ?></td>
+                                                                <td><?php echo htmlspecialchars($pageOptions[(int) ($page['permission_target_page_id'] ?? 0)] ?? 'Self'); ?></td>
+                                                                <td><span class="badge <?php echo ((int) ($page['show_in_sidebar'] ?? 1) === 1) ? 'bg-success-transparent text-success' : 'bg-light text-dark'; ?>"><?php echo ((int) ($page['show_in_sidebar'] ?? 1) === 1) ? 'Show' : 'Hide'; ?></span></td>
+                                                                <td><span class="badge <?php echo ((int) ($page['show_in_breadcrumb'] ?? 1) === 1) ? 'bg-success-transparent text-success' : 'bg-light text-dark'; ?>"><?php echo ((int) ($page['show_in_breadcrumb'] ?? 1) === 1) ? 'Show' : 'Hide'; ?></span></td>
                                                                 <td style="text-align: center;">
                                                                     <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Action</button>
                                                                     <ul class="dropdown-menu">
@@ -138,13 +188,13 @@ include_once '../../include/h_main.php';
                                                         <?php endforeach; ?>
                                                     <?php else: ?>
                                                         <tr>
-                                                            <td colspan="6" style="text-align: center;">No submenu records found</td>
+                                                            <td colspan="10" style="text-align: center;">No submenu records found</td>
                                                         </tr>
                                                     <?php endif; ?>
                                                 </tbody>
                                                 <tfoot>
                                                     <tr>
-                                                        <td colspan="7" style="text-align: center;">
+                                                        <td colspan="10" style="text-align: center;">
                                                             <a href="javascript:void(0);" class="add-menu-row" data-menu-id="<?php echo htmlspecialchars($menu['menu_id']); ?>" data-menu-name="<?php echo htmlspecialchars($menu['menu_name'], ENT_QUOTES); ?>"><i class="ri-checkbox-multiple-line me-2 align-middle d-inline-block"></i>Add New</a>
                                                         </td>
                                                     </tr>
@@ -227,6 +277,32 @@ include_once '../../include/h_main.php';
                         <label for="page_order" class="form-label">Page Order</label>
                         <input type="text" class="form-control" id="page_order" name="page_order" placeholder="e.g. 99.2.1" required>
                     </div>
+                    <div class="mb-3">
+                        <label for="required_ability" class="form-label">Required Ability</label>
+                        <select class="form-control" id="required_ability" name="required_ability">
+                            <option value="view">View</option>
+                            <option value="add">Add</option>
+                            <option value="edit">Edit</option>
+                            <option value="delete">Delete</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="permission_target_page_id" class="form-label">Permission Target Page</label>
+                        <select class="form-control" id="permission_target_page_id" name="permission_target_page_id">
+                            <option value="">Self</option>
+                            <?php foreach ($pageOptions as $pageId => $pageLabel): ?>
+                                <option value="<?php echo (int) $pageId; ?>"><?php echo htmlspecialchars($pageLabel); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-check form-check-inline mb-3">
+                        <input class="form-check-input" type="checkbox" id="add_show_in_sidebar" name="show_in_sidebar" value="1" checked>
+                        <label class="form-check-label" for="add_show_in_sidebar">Show in Sidebar</label>
+                    </div>
+                    <div class="form-check form-check-inline mb-3">
+                        <input class="form-check-input" type="checkbox" id="add_show_in_breadcrumb" name="show_in_breadcrumb" value="1" checked>
+                        <label class="form-check-label" for="add_show_in_breadcrumb">Show in Breadcrumb</label>
+                    </div>
                     <div class="form-text">Leave Page URL and File Name empty to create a child group header in the sidebar.</div>
                 </div>
                 <div class="modal-footer">
@@ -263,6 +339,32 @@ include_once '../../include/h_main.php';
                     <div class="mb-3">
                         <label for="edit_page_order" class="form-label">Page Order</label>
                         <input type="text" class="form-control" id="edit_page_order" name="page_order" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_required_ability" class="form-label">Required Ability</label>
+                        <select class="form-control" id="edit_required_ability" name="required_ability">
+                            <option value="view">View</option>
+                            <option value="add">Add</option>
+                            <option value="edit">Edit</option>
+                            <option value="delete">Delete</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_permission_target_page_id" class="form-label">Permission Target Page</label>
+                        <select class="form-control" id="edit_permission_target_page_id" name="permission_target_page_id">
+                            <option value="">Self</option>
+                            <?php foreach ($pageOptions as $pageId => $pageLabel): ?>
+                                <option value="<?php echo (int) $pageId; ?>"><?php echo htmlspecialchars($pageLabel); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-check form-check-inline mb-3">
+                        <input class="form-check-input" type="checkbox" id="edit_show_in_sidebar" name="show_in_sidebar" value="1">
+                        <label class="form-check-label" for="edit_show_in_sidebar">Show in Sidebar</label>
+                    </div>
+                    <div class="form-check form-check-inline mb-3">
+                        <input class="form-check-input" type="checkbox" id="edit_show_in_breadcrumb" name="show_in_breadcrumb" value="1">
+                        <label class="form-check-label" for="edit_show_in_breadcrumb">Show in Breadcrumb</label>
                     </div>
                     <div class="form-text">Leave Page URL and File Name empty to keep this item as a child group header.</div>
                 </div>
@@ -351,6 +453,10 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('edit_page_url').value = row.dataset.pageUrl || '';
             document.getElementById('edit_page_name').value = row.dataset.pageName || '';
             document.getElementById('edit_page_order').value = row.dataset.pageOrder || '';
+            document.getElementById('edit_required_ability').value = row.dataset.requiredAbility || 'view';
+            document.getElementById('edit_permission_target_page_id').value = row.dataset.permissionTargetPageId && row.dataset.permissionTargetPageId !== '0' ? row.dataset.permissionTargetPageId : '';
+            document.getElementById('edit_show_in_sidebar').checked = (row.dataset.showInSidebar || '1') === '1';
+            document.getElementById('edit_show_in_breadcrumb').checked = (row.dataset.showInBreadcrumb || '1') === '1';
             editPageModal.show();
             return;
         }

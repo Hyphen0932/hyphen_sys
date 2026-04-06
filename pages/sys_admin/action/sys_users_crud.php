@@ -1,5 +1,6 @@
 <?php
 include_once '../../../build/config.php';
+include_once '../../../build/authorization.php';
 
 header('Content-Type: application/json; charset=utf-8');
 mysqli_set_charset($conn, 'utf8mb4');
@@ -19,6 +20,14 @@ if (!function_exists('json_response')) {
 	}
 }
 
+hyphen_boot_session();
+
+if (!hyphen_is_authenticated()) {
+	json_response(false, 'Your session has expired. Please sign in again.', [], 401);
+}
+
+hyphen_refresh_session_authorization($conn, (string) ($_SESSION['staff_id'] ?? ''));
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 	json_response(false, 'Invalid request method.', [], 405);
 }
@@ -27,10 +36,12 @@ $action = trim((string) ($_POST['action'] ?? ''));
 
 switch ($action) {
 	case 'create_user':
+		hyphen_require_ability('add', 'sys_admin/system_users_new', null, true);
 		create_user($conn);
 		break;
 
 	case 'update_user':
+		hyphen_require_ability('edit', 'sys_admin/system_users_edit', null, true);
 		update_user($conn);
 		break;
 
@@ -390,6 +401,13 @@ function update_user(mysqli $conn): void
 	}
 
 	mysqli_commit($conn);
+
+	if ((string) ($_SESSION['staff_id'] ?? '') === $currentStaffId) {
+		$_SESSION['username'] = $username;
+		$_SESSION['role'] = $role;
+		$_SESSION['image_url'] = $imageUrl;
+		hyphen_refresh_session_authorization($conn, $currentStaffId);
+	}
 
 	json_response(true, 'User updated successfully.');
 }

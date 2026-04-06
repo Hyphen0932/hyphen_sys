@@ -1,5 +1,6 @@
 <?php
 include_once __DIR__ . '/config.php';
+include_once __DIR__ . '/authorization.php';
 
 header('Content-Type: application/json; charset=utf-8');
 mysqli_set_charset($conn, 'utf8mb4');
@@ -37,9 +38,7 @@ session_set_cookie_params([
 	'samesite' => 'Lax',
 ]);
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-	session_start();
-}
+hyphen_boot_session();
 
 $statement = mysqli_prepare($conn, 'SELECT username, staff_id, password, role, status, menu_rights, image_url FROM hy_users WHERE staff_id = ? LIMIT 1');
 if (!$statement) {
@@ -93,20 +92,17 @@ if (password_needs_rehash($storedPassword, PASSWORD_DEFAULT)) {
 	}
 }
 
-$menuRights = json_decode((string) ($user['menu_rights'] ?? '[]'), true);
-if (!is_array($menuRights)) {
-	$menuRights = [];
-}
-
 session_regenerate_id(true);
 
 $_SESSION['username'] = (string) ($user['username'] ?? '');
 $_SESSION['staff_id'] = (string) ($user['staff_id'] ?? '');
 $_SESSION['role'] = (string) ($user['role'] ?? '');
-$_SESSION['menu_rights'] = $menuRights;
 $_SESSION['image_url'] = (string) ($user['image_url'] ?? '');
 $_SESSION['last_activity'] = time();
 $_SESSION['session_timeout'] = $remember ? 86400 * 30 : 7200;
+
+$authorization = hyphen_refresh_session_authorization($conn, (string) ($user['staff_id'] ?? ''));
+$menuRights = $authorization['menu_rights'] ?? [];
 
 $redirectUrl = determine_redirect_url($conn, (string) ($user['staff_id'] ?? ''), $menuRights);
 
@@ -171,7 +167,7 @@ function login_status_is_active(string $status): bool
 		return true;
 	}
 
-	return in_array($status, ['1', 'active', 'enabled', 'enable', 'on'], true);
+	return $status === 'active';
 }
 
 function build_page_target(string $pageUrl): string

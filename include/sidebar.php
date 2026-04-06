@@ -3,35 +3,10 @@ include_once __DIR__ . '/../build/config.php';
 
 $sidebarMenus = [];
 $sidebarPagesByMenu = [];
-$sidebarAllowedMenuIds = [];
-$sidebarAllowedPageIds = [];
-
-if (isset($_SESSION['menu_rights']) && is_array($_SESSION['menu_rights'])) {
-    foreach ($_SESSION['menu_rights'] as $menuId) {
-        $menuId = trim((string) $menuId);
-        if ($menuId !== '') {
-            $sidebarAllowedMenuIds[] = $menuId;
-        }
-    }
-
-    $sidebarAllowedMenuIds = array_values(array_unique($sidebarAllowedMenuIds));
-}
-
-if (!empty($_SESSION['staff_id'])) {
-    $permissionStatement = mysqli_prepare($conn, 'SELECT page_id FROM hy_user_permissions WHERE staff_id = ? AND can_view = 1');
-    if ($permissionStatement) {
-        $staffId = (string) $_SESSION['staff_id'];
-        mysqli_stmt_bind_param($permissionStatement, 's', $staffId);
-        mysqli_stmt_execute($permissionStatement);
-        $permissionResult = mysqli_stmt_get_result($permissionStatement);
-
-        while ($permissionResult && ($row = mysqli_fetch_assoc($permissionResult))) {
-            $sidebarAllowedPageIds[] = (int) ($row['page_id'] ?? 0);
-        }
-
-        mysqli_stmt_close($permissionStatement);
-    }
-}
+$sidebarAllowedMenuIds = hyphen_normalize_menu_rights(is_array($_SESSION['menu_rights'] ?? null) ? $_SESSION['menu_rights'] : []);
+$sidebarPermissionMap = hyphen_session_permission_map();
+$sidebarPageRegistry = hyphen_page_registry();
+$breadcrumbRegistry = [];
 
 $menuResult = mysqli_query($conn, 'SELECT id, category, link, menu_id, menu_name, menu_icon FROM hy_user_menu');
 if ($menuResult !== false) {
@@ -167,8 +142,10 @@ function sidebar_build_menu_tree(array $pages): array
                         $menuCategory = $menuCategory === '' ? 'Uncategorized' : $menuCategory;
                         $menuPages = [];
                         foreach (($sidebarPagesByMenu[$menuId] ?? []) as $page) {
-                            $pageId = (int) ($page['id'] ?? 0);
-                            if (sidebar_is_group_placeholder($page) || in_array($pageId, $sidebarAllowedPageIds, true)) {
+                            $pageKey = hyphen_normalize_page_key((string) ($page['page_url'] ?? ''));
+                            $pageDefinition = $sidebarPageRegistry[$pageKey] ?? null;
+                            $showInSidebar = $pageDefinition === null ? true : !empty($pageDefinition['show_in_sidebar']);
+                            if (sidebar_is_group_placeholder($page) || ($showInSidebar && !empty($sidebarPermissionMap[$pageKey]['view']) && in_array($menuId, $sidebarAllowedMenuIds, true))) {
                                 $menuPages[] = $page;
                             }
                         }
@@ -192,8 +169,9 @@ function sidebar_build_menu_tree(array $pages): array
                             <ul class="slide-menu child1">
                                 <?php foreach ($menuTree['direct'] as $page): ?>
                                     <?php $normalizedUrl = sidebar_normalize_page_url($page['page_url'] ?? ''); ?>
+                                    <?php $pageDefinition = $sidebarPageRegistry[$normalizedUrl] ?? null; ?>
                                     <li class="slide">
-                                        <a href="../<?php echo htmlspecialchars($normalizedUrl); ?>" class="side-menu__item" data-page-url="<?php echo htmlspecialchars($normalizedUrl, ENT_QUOTES); ?>"><?php echo htmlspecialchars((string) ($page['display_name'] ?? '')); ?></a>
+                                        <a href="../<?php echo htmlspecialchars($normalizedUrl); ?>" class="side-menu__item" data-page-url="<?php echo htmlspecialchars($normalizedUrl, ENT_QUOTES); ?>" data-breadcrumb-visible="<?php echo !empty($pageDefinition['show_in_breadcrumb']) ? '1' : '0'; ?>"><?php echo htmlspecialchars((string) ($page['display_name'] ?? '')); ?></a>
                                     </li>
                                 <?php endforeach; ?>
 
@@ -207,8 +185,9 @@ function sidebar_build_menu_tree(array $pages): array
                                         <ul class="slide-menu child2">
                                             <?php foreach ($group['children'] as $page): ?>
                                                 <?php $normalizedUrl = sidebar_normalize_page_url($page['page_url'] ?? ''); ?>
+                                                <?php $pageDefinition = $sidebarPageRegistry[$normalizedUrl] ?? null; ?>
                                                 <li class="slide">
-                                                    <a href="../<?php echo htmlspecialchars($normalizedUrl); ?>" class="side-menu__item" data-page-url="<?php echo htmlspecialchars($normalizedUrl, ENT_QUOTES); ?>"><?php echo htmlspecialchars((string) ($page['display_name'] ?? '')); ?></a>
+                                                    <a href="../<?php echo htmlspecialchars($normalizedUrl); ?>" class="side-menu__item" data-page-url="<?php echo htmlspecialchars($normalizedUrl, ENT_QUOTES); ?>" data-breadcrumb-visible="<?php echo !empty($pageDefinition['show_in_breadcrumb']) ? '1' : '0'; ?>"><?php echo htmlspecialchars((string) ($page['display_name'] ?? '')); ?></a>
                                                 </li>
                                             <?php endforeach; ?>
                                         </ul>
@@ -231,6 +210,21 @@ function sidebar_build_menu_tree(array $pages): array
     </div>
 
 </aside>
+<?php foreach ($sidebarPageRegistry as $pageDefinition): ?>
+    <?php
+    $pageKey = trim((string) ($pageDefinition['page_key'] ?? ''));
+    $displayName = trim((string) ($pageDefinition['display_name'] ?? ''));
+    if ($pageKey === '' || $displayName === '' || empty($pageDefinition['show_in_breadcrumb'])) {
+        continue;
+    }
+
+    $breadcrumbRegistry[$pageKey] = [
+        'label' => $displayName,
+        'url' => '../' . $pageKey,
+    ];
+    ?>
+<?php endforeach; ?>
+<script id="hyphen-page-registry" type="application/json"><?php echo htmlspecialchars(json_encode($breadcrumbRegistry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_NOQUOTES); ?></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const currentPage = normalizeSidebarPage(window.location.pathname || '');

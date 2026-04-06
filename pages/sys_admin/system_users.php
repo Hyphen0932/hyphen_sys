@@ -1,5 +1,12 @@
 <?php
 include_once '../../build/config.php';
+include_once '../../build/session.php';
+
+$pageAuth = hyphen_bind_page_auth('sys_admin/system_users');
+
+$canCreateUsers = hyphen_page_auth('sys_admin/system_users_new')['add'];
+$canEditUsers = hyphen_page_auth('sys_admin/system_users_edit')['edit'];
+$canDeleteUsers = $canDelete;
 
 $users = [];
 $dbError = null;
@@ -33,11 +40,11 @@ function system_user_image_path(?string $imageUrl): string
 function system_user_status_badge(string $status): array
 {
     $normalized = strtolower(trim($status));
-    $isActive = in_array($normalized, ['1', 'active', 'enabled', 'enable', 'on'], true);
+    $isActive = $normalized === 'active';
 
     return [
         'class' => $isActive ? 'bg-success-transparent text-success' : 'bg-danger-transparent text-danger',
-        'label' => $normalized === '1' ? 'Active' : ucfirst($status !== '' ? $status : 'Unknown'),
+        'label' => $status !== '' ? ucfirst($status) : 'Unknown',
     ];
 }
 
@@ -103,8 +110,12 @@ include_once '../../include/h_cstable.php';
                                         <td>
                                             <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Action</button>
                                             <ul class="dropdown-menu">
-                                                <li><a class="dropdown-item" href="system_users_edit.php?id=<?php echo (int) ($user['id'] ?? 0); ?>">Edit</a></li>
-                                                <li><span class="dropdown-item disabled">Delete</span></li>
+                                                <?php if ($canEditUsers): ?>
+                                                    <li><a class="dropdown-item" href="system_users_edit?id=<?php echo (int) ($user['id'] ?? 0); ?>">Edit</a></li>
+                                                <?php else: ?>
+                                                    <li><span class="dropdown-item disabled">Edit</span></li>
+                                                <?php endif; ?>
+                                                <li><span class="dropdown-item disabled"><?php echo $canDeleteUsers ? 'Delete (Pending)' : 'Delete'; ?></span></li>
                                             </ul>
                                         </td>
                                     </tr>
@@ -125,14 +136,22 @@ include_once '../../include/h_cstable.php';
             <div class="card-header">
                 <ul class="nav nav-pills card-header-pills ms-1">
                     <li class="nav-item">
-                        <a class="nav-link active" href="system_users_new.php">Add New User</a>
+                        <?php if ($canCreateUsers): ?>
+                            <a class="nav-link active" href="system_users_new">Add New User</a>
+                        <?php else: ?>
+                            <span class="nav-link disabled">Add New User</span>
+                        <?php endif; ?>
                     </li>
                 </ul>
             </div>
             <div class="card-body">
                 <h6 class="card-title fw-semibold">Create New User</h6>
                 <p class="card-text">Use the existing user form to create a new account and assign page permissions.</p>
-                <a href="system_users_new.php" class="btn btn-primary">Add New User</a>
+                <?php if ($canCreateUsers): ?>
+                    <a href="system_users_new" class="btn btn-primary">Add New User</a>
+                <?php else: ?>
+                    <button type="button" class="btn btn-primary" disabled>Add New User</button>
+                <?php endif; ?>
             </div>
         </div>
     </div>
