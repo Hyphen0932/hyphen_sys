@@ -3,6 +3,15 @@ include_once '../../../build/config.php';
 include_once '../../../build/authorization.php';
 
 header('Content-Type: application/json; charset=utf-8');
+mysqli_set_charset($conn, 'utf8mb4');
+
+hyphen_boot_session();
+
+if (!hyphen_is_authenticated()) {
+	json_response(false, 'Your session has expired. Please sign in again.', [], 401);
+}
+
+hyphen_refresh_session_authorization($conn, (string) ($_SESSION['staff_id'] ?? ''));
 
 if (!function_exists('json_response')) {
 	function json_response(bool $success, string $message, array $data = [], int $statusCode = 200): void
@@ -21,32 +30,36 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 	json_response(false, 'Invalid request method.', [], 405);
 }
 
-mysqli_set_charset($conn, 'utf8mb4');
-
 $action = trim((string) ($_POST['action'] ?? ''));
 
 switch ($action) {
 	case 'add_menu':
+		hyphen_require_ability('add', 'sys_admin/system_menu', null, true);
 		add_menu($conn);
 		break;
 
 	case 'update_menu':
+		hyphen_require_ability('edit', 'sys_admin/system_menu', null, true);
 		update_menu($conn);
 		break;
 
 	case 'delete_menu':
+		hyphen_require_ability('delete', 'sys_admin/system_menu', null, true);
 		delete_menu($conn);
 		break;
 
 	case 'add_page':
+		hyphen_require_ability('add', 'sys_admin/system_menu', null, true);
 		add_page($conn);
 		break;
 
 	case 'update_page':
+		hyphen_require_ability('edit', 'sys_admin/system_menu', null, true);
 		update_page($conn);
 		break;
 
 	case 'delete_page':
+		hyphen_require_ability('delete', 'sys_admin/system_menu', null, true);
 		delete_page($conn);
 		break;
 

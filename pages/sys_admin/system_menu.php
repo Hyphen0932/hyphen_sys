@@ -2,6 +2,8 @@
 include_once '../../build/config.php';
 include_once '../../build/session.php';
 
+$pageAuth = hyphen_bind_page_auth('sys_admin/system_menu');
+
 $menus = [];
 $pagesByMenu = [];
 $pageOptions = [];
@@ -125,10 +127,17 @@ include_once '../../include/h_main.php';
                                 <span class="nav-link disabled">No menu records found</span>
                             <?php endif; ?>
 
-                            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#exampleModalScrollable3">
-                                <i class="ri-checkbox-multiple-line me-2 align-middle d-inline-block"></i>
-                                Add New Menu
-                            </a>
+                            <?php if ($canAdd): ?>
+                                <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#exampleModalScrollable3">
+                                    <i class="ri-checkbox-multiple-line me-2 align-middle d-inline-block"></i>
+                                    Add New Menu
+                                </a>
+                            <?php else: ?>
+                                <span class="nav-link disabled">
+                                    <i class="ri-checkbox-multiple-line me-2 align-middle d-inline-block"></i>
+                                    Add New Menu
+                                </span>
+                            <?php endif; ?>
                         </nav>
                     </div>
                     <div class="col-xl-9">
@@ -178,10 +187,18 @@ include_once '../../include/h_main.php';
                                                                 <td><span class="badge <?php echo ((int) ($page['show_in_sidebar'] ?? 1) === 1) ? 'bg-success-transparent text-success' : 'bg-light text-dark'; ?>"><?php echo ((int) ($page['show_in_sidebar'] ?? 1) === 1) ? 'Show' : 'Hide'; ?></span></td>
                                                                 <td><span class="badge <?php echo ((int) ($page['show_in_breadcrumb'] ?? 1) === 1) ? 'bg-success-transparent text-success' : 'bg-light text-dark'; ?>"><?php echo ((int) ($page['show_in_breadcrumb'] ?? 1) === 1) ? 'Show' : 'Hide'; ?></span></td>
                                                                 <td style="text-align: center;">
-                                                                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Action</button>
+                                                                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" <?php echo (!$canEdit && !$canDelete) ? 'disabled' : ''; ?>>Action</button>
                                                                     <ul class="dropdown-menu">
-                                                                        <li><a class="dropdown-item edit-menu-row" href="javascript:void(0);">Edit</a></li>
-                                                                        <li><a class="dropdown-item delete-menu-row" href="javascript:void(0);">Delete</a></li>
+                                                                        <?php if ($canEdit): ?>
+                                                                            <li><a class="dropdown-item edit-menu-row" href="javascript:void(0);">Edit</a></li>
+                                                                        <?php else: ?>
+                                                                            <li><span class="dropdown-item disabled">Edit</span></li>
+                                                                        <?php endif; ?>
+                                                                        <?php if ($canDelete): ?>
+                                                                            <li><a class="dropdown-item delete-menu-row" href="javascript:void(0);">Delete</a></li>
+                                                                        <?php else: ?>
+                                                                            <li><span class="dropdown-item disabled">Delete</span></li>
+                                                                        <?php endif; ?>
                                                                     </ul>
                                                                 </td>
                                                             </tr>
@@ -195,7 +212,11 @@ include_once '../../include/h_main.php';
                                                 <tfoot>
                                                     <tr>
                                                         <td colspan="10" style="text-align: center;">
-                                                            <a href="javascript:void(0);" class="add-menu-row" data-menu-id="<?php echo htmlspecialchars($menu['menu_id']); ?>" data-menu-name="<?php echo htmlspecialchars($menu['menu_name'], ENT_QUOTES); ?>"><i class="ri-checkbox-multiple-line me-2 align-middle d-inline-block"></i>Add New</a>
+                                                            <?php if ($canAdd): ?>
+                                                                <a href="javascript:void(0);" class="add-menu-row" data-menu-id="<?php echo htmlspecialchars($menu['menu_id']); ?>" data-menu-name="<?php echo htmlspecialchars($menu['menu_name'], ENT_QUOTES); ?>"><i class="ri-checkbox-multiple-line me-2 align-middle d-inline-block"></i>Add New</a>
+                                                            <?php else: ?>
+                                                                <span class="text-muted"><i class="ri-checkbox-multiple-line me-2 align-middle d-inline-block"></i>Add New</span>
+                                                            <?php endif; ?>
                                                         </td>
                                                     </tr>
                                                 </tfoot>
@@ -244,7 +265,7 @@ include_once '../../include/h_main.php';
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Add Menu</button>
+                    <button type="submit" class="btn btn-primary" <?php echo !$canAdd ? 'disabled' : ''; ?>>Add Menu</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </form>
@@ -306,7 +327,7 @@ include_once '../../include/h_main.php';
                     <div class="form-text">Leave Page URL and File Name empty to create a child group header in the sidebar.</div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Add Page</button>
+                    <button type="submit" class="btn btn-primary" <?php echo !$canAdd ? 'disabled' : ''; ?>>Add Page</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </form>
@@ -369,7 +390,7 @@ include_once '../../include/h_main.php';
                     <div class="form-text">Leave Page URL and File Name empty to keep this item as a child group header.</div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="submit" class="btn btn-primary" <?php echo !$canEdit ? 'disabled' : ''; ?>>Save Changes</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </form>
