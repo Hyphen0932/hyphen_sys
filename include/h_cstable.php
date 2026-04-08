@@ -7,4 +7,9 @@
         background: rgb(19, 60, 125);
         color: #fff;
     }
+
+    #SysUsers_wrapper .dataTables_paginate .pagination .page-link {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.65rem;
+    }
 </style>

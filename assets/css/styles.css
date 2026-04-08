@@ -670,7 +670,8 @@ typography
 [data-menu-styles=dark] .app-sidebar .side-menu__item.active .side-menu__angle, [data-menu-styles=dark] .app-sidebar .side-menu__item:hover .side-menu__icon,
 [data-menu-styles=dark] .app-sidebar .side-menu__item:hover .side-menu__label,
 [data-menu-styles=dark] .app-sidebar .side-menu__item:hover .side-menu__angle {
-  color: var(--primary-color);
+  /* color: var(--primary-color); */
+  color: rgb(0, 99, 255);
   fill: var(--primary-color);
 }
 [data-menu-styles=dark] .app-sidebar .slide-menu.child1 .side-menu__item:hover,
@@ -696,7 +697,8 @@ typography
 [data-menu-styles=dark] .app-sidebar .slide-menu.child1 .side-menu__item.active:before,
 [data-menu-styles=dark] .app-sidebar .slide-menu.child2 .side-menu__item.active:before,
 [data-menu-styles=dark] .app-sidebar .slide-menu.child3 .side-menu__item.active:before {
-  color: var(--primary-color);
+  color: rgb(0, 99, 255);
+  /* color: var(--primary-color); */
 }
 [data-menu-styles=dark] .app-sidebar .slide-menu.child1 .side-menu__item.active:before,
 [data-menu-styles=dark] .app-sidebar .slide-menu.child2 .side-menu__item.active:before, .app-sidebar .slide-menu.child3 .side-menu__item.active:before [data-menu-styles=dark]:hover, [data-menu-styles=dark]:focus {
@@ -16333,7 +16335,8 @@ code[class*=language-] {
   fill: var(--primary-color);
 }
 .app-sidebar .slide.has-sub.open .side-menu__label {
-  color: var(--primary-color);
+  /* color: var(--primary-color); */
+  color: rgb(0, 99, 255);
 }
 .app-sidebar .slide-menu {
   padding: 0rem;
@@ -16359,7 +16362,8 @@ code[class*=language-] {
   color: var(--primary-color);
 }
 .app-sidebar .slide-menu.child1 .side-menu__item.active, .app-sidebar .slide-menu.child2 .side-menu__item.active, .app-sidebar .slide-menu.child3 .side-menu__item.active {
-  color: var(--primary-color);
+  /* color: var(--primary-color); */
+  color: rgb(0, 99, 255);
   font-weight: 400;
 }
 .app-sidebar .slide-menu.child1 .side-menu__item.active:before, .app-sidebar .slide-menu.child2 .side-menu__item.active:before, .app-sidebar .slide-menu.child3 .side-menu__item.active:before {

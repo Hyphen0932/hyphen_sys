@@ -133,7 +133,7 @@ include_once '../../include/h_cstable.php';
     </div>
     <div class="col-xl-3">
         <div class="card text-center custom-card">
-            <div class="card-header">
+            <!-- <div class="card-header">
                 <ul class="nav nav-pills card-header-pills ms-1">
                     <li class="nav-item">
                         <?php if ($canCreateUsers): ?>
@@ -143,7 +143,7 @@ include_once '../../include/h_cstable.php';
                         <?php endif; ?>
                     </li>
                 </ul>
-            </div>
+            </div> -->
             <div class="card-body">
                 <h6 class="card-title fw-semibold">Create New User</h6>
                 <p class="card-text">Use the existing user form to create a new account and assign page permissions.</p>
