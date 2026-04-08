@@ -1,0 +1,9 @@
+{
+    "name": "hyphen-sys/hyphen-sys",
+    "description": "Hyphen System internal management platform",
+    "type": "project",
+    "require": {
+        "php": "^8.2",
+        "phpmailer/phpmailer": "^6.9"
+    }
+}

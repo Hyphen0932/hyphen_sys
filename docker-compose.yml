@@ -8,11 +8,20 @@ services:
         condition: service_healthy
     environment:
       TZ: ${TZ:-Asia/Singapore}
+      APP_ENV: ${APP_ENV:-production}
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: ${MYSQL_DATABASE:-hyphen_sys}
       DB_USER: ${MYSQL_USER:-hyphen_user}
       DB_PASSWORD: ${MYSQL_PASSWORD:-hyphen_pass}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Hyphen System}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO:-}
     command: >
       /bin/sh -lc "
       mkdir -p /var/www/html/hyphen_sys/assets/user_image &&
