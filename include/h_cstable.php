@@ -12,4 +12,13 @@
         font-size: 0.75rem;
         padding: 0.3rem 0.65rem;
     }
+
+    #SysNoti_wrapper .dataTables_paginate .pagination .page-link {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.65rem;
+    }
+    #EmailLogTable_wrapper .dataTables_paginate .pagination .page-link {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.65rem;
+    }
 </style>

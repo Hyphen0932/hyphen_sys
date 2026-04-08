@@ -106,7 +106,7 @@ include_once '../../include/h_cstable.php';
                     <?php if (!$mailConfigured): ?>
                         Missing mail config: <?php echo htmlspecialchars(implode(', ', $mailMissingConfig)); ?>
                     <?php else: ?>
-                        Gmail SMTP is configured. If sending fails, use a Gmail App Password instead of the account password.
+                        Gmail SMTP is configured. 
                     <?php endif; ?>
                 </div>
 
