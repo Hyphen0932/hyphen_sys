@@ -1,0 +1,51 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Asia/Singapore}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE:-hyphen_sys}
+      DB_USER: ${MYSQL_USER:-hyphen_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-hyphen_pass}
+    command: >
+      /bin/sh -lc "
+      mkdir -p /var/www/html/hyphen_sys/assets/user_image &&
+      if [ -z \"$$(ls -A /var/www/html/hyphen_sys/assets/user_image 2>/dev/null)\" ]; then
+        cp -an /usr/local/share/hyphen_sys-default-user-image/. /var/www/html/hyphen_sys/assets/user_image/;
+      fi &&
+      chown -R www-data:www-data /var/www/html/hyphen_sys/assets/user_image &&
+      apache2-foreground
+      "
+    volumes:
+      - hyphen_sys_user_images:/var/www/html/hyphen_sys/assets/user_image
+    restart: unless-stopped
+
+  db:
+    build:
+      context: .
+      dockerfile: docker/db/Dockerfile
+    environment:
+      TZ: ${TZ:-Asia/Singapore}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MARIADB_DATABASE: ${MYSQL_DATABASE:-hyphen_sys}
+      MARIADB_USER: ${MYSQL_USER:-hyphen_user}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD:-hyphen_pass}
+    volumes:
+      - hyphen_sys_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p$${MARIADB_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  hyphen_sys_db_data:
+  hyphen_sys_user_images:

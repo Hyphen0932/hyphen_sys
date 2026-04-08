@@ -60,64 +60,17 @@
                 </div>
 
                 <!-- Start::header-element -->
-                <div class="header-element country-selector">
-                    <!-- Start::header-link|dropdown-toggle -->
-                    <a href="javascript:void(0);" class="header-link dropdown-toggle" data-bs-auto-close="outside" data-bs-toggle="dropdown">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="flag-icon1">
-                            <circle cx="256" cy="256" r="256" fill="#f0f0f0"></circle>
-                            <g fill="#0052b4">
-                                <path d="M52.92 100.142c-20.109 26.163-35.272 56.318-44.101 89.077h133.178L52.92 100.142zM503.181 189.219c-8.829-32.758-23.993-62.913-44.101-89.076l-89.075 89.076h133.176zM8.819 322.784c8.83 32.758 23.993 62.913 44.101 89.075l89.074-89.075H8.819zM411.858 52.921c-26.163-20.109-56.317-35.272-89.076-44.102v133.177l89.076-89.075zM100.142 459.079c26.163 20.109 56.318 35.272 89.076 44.102V370.005l-89.076 89.074zM189.217 8.819c-32.758 8.83-62.913 23.993-89.075 44.101l89.075 89.075V8.819zM322.783 503.181c32.758-8.83 62.913-23.993 89.075-44.101l-89.075-89.075v133.176zM370.005 322.784l89.075 89.076c20.108-26.162 35.272-56.318 44.101-89.076H370.005z"></path>
-                            </g>
-                            <g fill="#d80027">
-                                <path d="M509.833 222.609H289.392V2.167A258.556 258.556 0 00256 0c-11.319 0-22.461.744-33.391 2.167v220.441H2.167A258.556 258.556 0 000 256c0 11.319.744 22.461 2.167 33.391h220.441v220.442a258.35 258.35 0 0066.783 0V289.392h220.442A258.533 258.533 0 00512 256c0-11.317-.744-22.461-2.167-33.391z"></path>
-                                <path d="M322.783 322.784L437.019 437.02a256.636 256.636 0 0015.048-16.435l-97.802-97.802h-31.482v.001zM189.217 322.784h-.002L74.98 437.019a256.636 256.636 0 0016.435 15.048l97.802-97.804v-31.479zM189.217 189.219v-.002L74.981 74.98a256.636 256.636 0 00-15.048 16.435l97.803 97.803h31.481zM322.783 189.219L437.02 74.981a256.328 256.328 0 00-16.435-15.047l-97.802 97.803v31.482z"></path>
-                            </g>
+                <?php if ($_SERVER['HTTP_HOST'] ==='localhost' OR $_SERVER['HTTP_HOST'] === 'localhost:8080'): ?>
+                <div class="header-element">
+                    <!-- Developer Icon -->
+                    <a href="javascript:void(0);" class="header-link d-inline-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#developerModal">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#ffffff">
+                            <path d="M80-680v-80q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v80h-80v-80H160v80H80Zm240 560v-80H160q-33 0-56.5-23.5T80-280v-80h80v80h640v-80h80v80q0 33-23.5 56.5T800-200H640v80H320Zm160-400Zm-288 0 104-104-56-56L80-520l160 160 56-56-104-104Zm576 0L664-416l56 56 160-160-160-160-56 56 104 104Z" />
                         </svg>
+                        <span style="color:aliceblue;">Dev Mode</span>
                     </a>
-                    <!-- End::header-link|dropdown-toggle -->
-                    <ul class="main-header-dropdown dropdown-menu dropdown-menu-end country-dropdown" data-popper-placement="none">
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);">
-                                <span>
-                                    <img src="../../assets/images/flags/french_flag.jpg" alt="img" class="avatar avatar-xs lh-1 me-2">
-                                </span>
-                                French
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);">
-                                <span>
-                                    <img src="../../assets/images/flags/germany_flag.jpg" alt="img" class="avatar avatar-xs lh-1 me-2">
-                                </span>
-                                German
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);">
-                                <span>
-                                    <img src="../../assets/images/flags/italy_flag.jpg" alt="img" class="avatar avatar-xs lh-1 me-2">
-                                </span>
-                                Italian
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);">
-                                <span>
-                                    <img src="../../assets/images/flags/russia_flag.jpg" alt="img" class="avatar avatar-xs lh-1 me-2">
-                                </span>
-                                Russian
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="javascript:void(0);">
-                                <span>
-                                    <img src="../../assets/images/flags/spain_flag.jpg" alt="img" class="avatar avatar-xs lh-1 me-2">
-                                </span>
-                                Spanish
-                            </a>
-                        </li>
-                    </ul>
                 </div>
+                <?php endif; ?>
                 <!-- End::header-element -->
 
                 <!-- Start::header-element -->
@@ -183,70 +136,6 @@
                                     </div>
                                 </div>
                             </li>
-                            <li class="dropdown-item">
-                                <div class="d-flex messages">
-                                    <span class="avatar avatar-md me-2 online avatar-rounded flex-shrink-0">
-                                        <img src="../../assets/images/faces/3.jpg" alt="img">
-                                    </span>
-                                    <div>
-                                        <div class="d-flex">
-                                            <a href="chat.html">
-                                                <h6 class="mb-1 name">Jimmy Changa</h6>
-                                            </a>
-                                        </div>
-                                        <p class="mb-0 fs-12 desc">All set ! Now, time to get to you now......</p>
-                                        <p class="time mb-0 text-start float-start ms-2 mt-2">Mar 06 01:12 AM</p>
-                                    </div>
-                                </div>
-                            </li>
-                            <li class="dropdown-item">
-                                <div class="d-flex messages">
-                                    <span class="avatar avatar-md me-2 online avatar-rounded flex-shrink-0">
-                                        <img src="../../assets/images/faces/5.jpg" alt="img">
-                                    </span>
-                                    <div>
-                                        <div class="d-flex">
-                                            <a href="chat.html">
-                                                <h6 class="mb-1 name">Graham Cracker</h6>
-                                            </a>
-                                        </div>
-                                        <p class="mb-0 fs-12 desc">Are you ready to pickup your Delivery...</p>
-                                        <p class="time mb-0 text-start float-start ms-2 mt-2">Feb 25 10:35 AM</p>
-                                    </div>
-                                </div>
-                            </li>
-                            <li class="dropdown-item">
-                                <div class="d-flex messages">
-                                    <span class="avatar avatar-md me-2 online avatar-rounded flex-shrink-0">
-                                        <img src="../../assets/images/faces/4.jpg" alt="img">
-                                    </span>
-                                    <div>
-                                        <div class="d-flex">
-                                            <a href="chat.html">
-                                                <h6 class="mb-1 name">Donatella Nobatti</h6>
-                                            </a>
-                                        </div>
-                                        <p class="mb-0 fs-12 desc">Here are some products ...</p>
-                                        <p class="time mb-0 text-start float-start ms-2 mt-2">Feb 12 05:12 PM</p>
-                                    </div>
-                                </div>
-                            </li>
-                            <li class="dropdown-item">
-                                <div class="d-flex messages">
-                                    <span class="avatar avatar-md me-2 online avatar-rounded flex-shrink-0">
-                                        <img src="../../assets/images/faces/1.jpg" alt="img">
-                                    </span>
-                                    <div>
-                                        <div class="d-flex">
-                                            <a href="chat.html">
-                                                <h6 class="mb-1 name">Anne Fibbiyon</h6>
-                                            </a>
-                                        </div>
-                                        <p class="mb-0 fs-12 desc">I'm sorry but i'm not sure how...</p>
-                                        <p class="time mb-0 text-start float-start ms-2 mt-2">Jan 29 03:16 PM</p>
-                                    </div>
-                                </div>
-                            </li>
                         </ul>
                         <div class="text-center dropdown-footer">
                             <a href="chat.html" class="text-primary fs-13">VIEW ALL</a>
@@ -296,86 +185,6 @@
                                     </div>
                                 </div>
                             </li>
-                            <li class="dropdown-item px-3">
-                                <div class="d-flex">
-                                    <span class="avatar avatar-md me-2 avatar-rounded flex-shrink-0 bg-purple">
-                                        <i class="la la-gem fs-20"></i>
-                                    </span>
-                                    <div class="ms-3">
-                                        <a href="mail.html">
-                                            <h5 class="notification-label text-dark mb-1">Updates Available</h5>
-                                        </a>
-                                        <div class="notification-subtext">2 days ago</div>
-                                    </div>
-                                    <div class="ms-auto">
-                                        <a href="mail.html"><i class="las la-angle-right text-end text-muted icon"></i></a>
-                                    </div>
-                                </div>
-                            </li>
-                            <li class="dropdown-item px-3">
-                                <div class="d-flex">
-                                    <span class="avatar avatar-md me-2 avatar-rounded flex-shrink-0 bg-success">
-                                        <i class="la la-shopping-basket fs-20"></i>
-                                    </span>
-                                    <div class="ms-3">
-                                        <a href="mail.html">
-                                            <h5 class="notification-label text-dark mb-1">New Order Received</h5>
-                                        </a>
-                                        <div class="notification-subtext">1 hour ago</div>
-                                    </div>
-                                    <div class="ms-auto">
-                                        <a href="mail.html"><i class="las la-angle-right text-end text-muted icon"></i></a>
-                                    </div>
-                                </div>
-                            </li>
-                            <li class="dropdown-item px-3">
-                                <div class="d-flex">
-                                    <span class="avatar avatar-md me-2 avatar-rounded flex-shrink-0 bg-warning">
-                                        <i class="la la-envelope-open fs-20 text-fixed-white"></i>
-                                    </span>
-                                    <div class="ms-3">
-                                        <a href="mail.html">
-                                            <h5 class="notification-label text-dark mb-1">New review received</h5>
-                                        </a>
-                                        <div class="notification-subtext">1 day ago</div>
-                                    </div>
-                                    <div class="ms-auto">
-                                        <a href="mail.html"><i class="las la-angle-right text-end text-muted icon"></i></a>
-                                    </div>
-                                </div>
-                            </li>
-                            <li class="dropdown-item px-3">
-                                <div class="d-flex">
-                                    <span class="avatar avatar-md me-2 avatar-rounded flex-shrink-0 bg-danger">
-                                        <i class="la la-user-check fs-20"></i>
-                                    </span>
-                                    <div class="ms-3">
-                                        <a href="mail.html">
-                                            <h5 class="notification-label text-dark mb-1">22 verified registrations</h5>
-                                        </a>
-                                        <div class="notification-subtext">2 hour ago</div>
-                                    </div>
-                                    <div class="ms-auto">
-                                        <a href="mail.html"><i class="las la-angle-right text-end text-muted icon"></i></a>
-                                    </div>
-                                </div>
-                            </li>
-                            <li class="dropdown-item px-3">
-                                <div class="d-flex">
-                                    <span class="avatar avatar-md me-2 avatar-rounded flex-shrink-0 bg-primary">
-                                        <i class="la la-check-circle fs-20"></i>
-                                    </span>
-                                    <div class="ms-3">
-                                        <a href="mail.html">
-                                            <h5 class="notification-label text-dark mb-1">Project has been approved</h5>
-                                        </a>
-                                        <div class="notification-subtext">4 hour ago</div>
-                                    </div>
-                                    <div class="ms-auto">
-                                        <a href="mail.html"><i class="las la-angle-right text-end text-muted icon"></i></a>
-                                    </div>
-                                </div>
-                            </li>
                         </ul>
                         <div class="text-center dropdown-footer">
                             <a href="mail.html" class="text-primary fs-13">VIEW ALL</a>
@@ -400,21 +209,7 @@
                     <!-- End::header-link -->
                 </div>
                 <!-- End::header-element -->
-
-                <!-- Start::header-element -->
-                <div class="header-element header-sidebar">
-                    <!-- Start::header-link-->
-                    <a href="javascript:void(0);" class="header-link" data-bs-toggle="offcanvas" data-bs-target="#header-sidebar">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="header-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="3" y1="12" x2="21" y2="12"></line>
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <line x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                    </a>
-                    <!-- End::header-link-->
-                </div>
-                <!-- End::header-element -->
-
+                 
                 <!-- Start::header-element -->
                 <div class="header-element headerProfile-dropdown">
                     <!-- Start::header-link|dropdown-toggle -->
@@ -437,19 +232,6 @@
                         <li><a class="dropdown-item d-flex border-block-end" href="editprofile.html"><i class="bx bx-slider-alt fs-18 me-2 op-7"></i>Account Settings</a></li>
                         <li><a class="dropdown-item d-flex" href="../../build/logout.php"><i class="bx bx-log-out fs-18 me-2 op-7"></i>Sign Out</a></li>
                     </ul>
-                </div>
-                <!-- End::header-element -->
-
-                <!-- Start::header-element -->
-                <div class="header-element">
-                    <!-- Start::header-link|switcher-icon -->
-                    <a href="javascript:void(0);" class="header-link switcher-icon" data-bs-toggle="offcanvas" data-bs-target="#switcher-canvas">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="header-link-icon" width="24" height="24" viewBox="0 0 24 24">
-                            <path d="M12 16c2.206 0 4-1.794 4-4s-1.794-4-4-4-4 1.794-4 4 1.794 4 4 4zm0-6c1.084 0 2 .916 2 2s-.916 2-2 2-2-.916-2-2 .916-2 2-2z"></path>
-                            <path d="m2.845 16.136 1 1.73c.531.917 1.809 1.261 2.73.73l.529-.306A8.1 8.1 0 0 0 9 19.402V20c0 1.103.897 2 2 2h2c1.103 0 2-.897 2-2v-.598a8.132 8.132 0 0 0 1.896-1.111l.529.306c.923.53 2.198.188 2.731-.731l.999-1.729a2.001 2.001 0 0 0-.731-2.732l-.505-.292a7.718 7.718 0 0 0 0-2.224l.505-.292a2.002 2.002 0 0 0 .731-2.732l-.999-1.729c-.531-.92-1.808-1.265-2.731-.732l-.529.306A8.1 8.1 0 0 0 15 4.598V4c0-1.103-.897-2-2-2h-2c-1.103 0-2 .897-2 2v.598a8.132 8.132 0 0 0-1.896 1.111l-.529-.306c-.924-.531-2.2-.187-2.731.732l-.999 1.729a2.001 2.001 0 0 0 .731 2.732l.505.292a7.683 7.683 0 0 0 0 2.223l-.505.292a2.003 2.003 0 0 0-.731 2.733zm3.326-2.758A5.703 5.703 0 0 1 6 12c0-.462.058-.926.17-1.378a.999.999 0 0 0-.47-1.108l-1.123-.65.998-1.729 1.145.662a.997.997 0 0 0 1.188-.142 6.071 6.071 0 0 1 2.384-1.399A1 1 0 0 0 11 5.3V4h2v1.3a1 1 0 0 0 .708.956 6.083 6.083 0 0 1 2.384 1.399.999.999 0 0 0 1.188.142l1.144-.661 1 1.729-1.124.649a1 1 0 0 0-.47 1.108c.112.452.17.916.17 1.378 0 .461-.058.925-.171 1.378a1 1 0 0 0 .471 1.108l1.123.649-.998 1.729-1.145-.661a.996.996 0 0 0-1.188.142 6.071 6.071 0 0 1-2.384 1.399A1 1 0 0 0 13 18.7l.002 1.3H11v-1.3a1 1 0 0 0-.708-.956 6.083 6.083 0 0 1-2.384-1.399.992.992 0 0 0-1.188-.141l-1.144.662-1-1.729 1.124-.651a1 1 0 0 0 .471-1.108z"></path>
-                        </svg>
-                    </a>
-                    <!-- End::header-link|switcher-icon -->
                 </div>
                 <!-- End::header-element -->
 

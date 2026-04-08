@@ -1,0 +1,23 @@
+services:
+  app:
+    ports:
+      - "${APP_BIND_IP:-127.0.0.1}:${APP_PORT:-8080}:80"
+
+  db:
+    ports:
+      - "${DB_BIND_IP:-127.0.0.1}:${DB_FORWARD_PORT:-3307}:3306"
+
+  phpmyadmin:
+    image: phpmyadmin:5.2-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PHPMYADMIN_BIND_IP:-127.0.0.1}:${PHPMYADMIN_PORT:-8081}:80"
+    environment:
+      TZ: ${TZ:-Asia/Singapore}
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      UPLOAD_LIMIT: 64M
+    restart: unless-stopped

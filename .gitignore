@@ -13,9 +13,12 @@ Thumbs.db
 /vendor
 /node_modules
 /dist
+/backups/
 
 # Environment
 .env
+.env.dev
+.env.prod
 .env.local
 .env.*.local
 
