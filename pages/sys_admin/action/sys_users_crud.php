@@ -1,6 +1,7 @@
 <?php
 include_once '../../../build/config.php';
 include_once '../../../build/authorization.php';
+include_once '../../../build/audit.php';
 
 header('Content-Type: application/json; charset=utf-8');
 mysqli_set_charset($conn, 'utf8mb4');
@@ -256,6 +257,39 @@ function fetch_user_by_id(mysqli $conn, int $userId): ?array
 	return $user ?: null;
 }
 
+function audit_user_snapshot(array $user): array
+{
+	$menuRights = $user['menu_rights'] ?? [];
+	if (is_string($menuRights) && trim($menuRights) !== '') {
+		$decodedMenuRights = json_decode($menuRights, true);
+		if (is_array($decodedMenuRights)) {
+			$menuRights = $decodedMenuRights;
+		}
+	}
+
+	$normalizedMenuRights = [];
+	if (is_array($menuRights)) {
+		foreach ($menuRights as $menuId) {
+			$menuId = trim((string) $menuId);
+			if ($menuId !== '') {
+				$normalizedMenuRights[] = $menuId;
+			}
+		}
+	}
+
+	return [
+		'username' => trim((string) ($user['username'] ?? '')),
+		'staff_id' => trim((string) ($user['staff_id'] ?? '')),
+		'email' => trim((string) ($user['email'] ?? '')),
+		'phone' => trim((string) ($user['phone'] ?? '')),
+		'designation' => trim((string) ($user['designation'] ?? '')),
+		'role' => trim((string) ($user['role'] ?? '')),
+		'status' => trim((string) ($user['status'] ?? '')),
+		'menu_rights' => array_values(array_unique($normalizedMenuRights)),
+		'image_url' => trim((string) ($user['image_url'] ?? '')),
+	];
+}
+
 function user_status_is_active(string $status): bool
 {
 	return strtolower(trim($status)) === 'active';
@@ -282,9 +316,27 @@ function create_user(mysqli $conn): void
 	mysqli_stmt_bind_param($duplicateStatement, 'sss', $username, $staffId, $email);
 	mysqli_stmt_execute($duplicateStatement);
 	mysqli_stmt_store_result($duplicateStatement);
+	$auditUser = audit_user_snapshot([
+		'username' => $username,
+		'staff_id' => $staffId,
+		'email' => $email,
+		'phone' => $phone,
+		'designation' => $designation,
+		'role' => $role,
+		'status' => 'active',
+		'menu_rights' => (array) $menuRights,
+	]);
 
 	if (mysqli_stmt_num_rows($duplicateStatement) > 0) {
 		mysqli_stmt_close($duplicateStatement);
+		hyphen_audit_action($conn, 'sys_users', 'create_user', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => $staffId,
+			'target_label' => $staffId,
+			'new_values' => $auditUser,
+			'metadata' => ['reason' => 'duplicate_user'],
+		]);
 		json_response(false, 'Username, staff ID or email already exists.', [], 409);
 	}
 
@@ -313,19 +365,55 @@ function create_user(mysqli $conn): void
 		$error = mysqli_stmt_error($userStatement);
 		mysqli_stmt_close($userStatement);
 		mysqli_rollback($conn);
+		hyphen_audit_action($conn, 'sys_users', 'create_user', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => $staffId,
+			'target_label' => $staffId,
+			'new_values' => $auditUser,
+			'metadata' => ['error' => $error],
+		]);
 		json_response(false, 'Failed to create user: ' . $error, [], 500);
 	}
 
+	$newUserId = mysqli_insert_id($conn);
 	mysqli_stmt_close($userStatement);
 
 	try {
 		sync_user_permissions($conn, $staffId, $pages, $enabledMenus, (array) $permissions);
 	} catch (Throwable $exception) {
 		mysqli_rollback($conn);
+		hyphen_audit_action($conn, 'sys_users', 'create_user', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => $staffId,
+			'target_label' => $staffId,
+			'new_values' => $auditUser,
+			'metadata' => ['error' => $exception->getMessage()],
+		]);
 		json_response(false, $exception->getMessage(), [], 500);
 	}
 
 	mysqli_commit($conn);
+
+	$auditUser['menu_rights'] = $enabledMenus;
+	$auditUser['image_url'] = $imageUrl;
+	hyphen_audit_action($conn, 'sys_users', 'create_user', [
+		'entity_type' => 'user',
+		'entity_id' => (string) $newUserId,
+		'target_label' => $staffId,
+		'new_values' => $auditUser,
+		'metadata' => [
+			'default_password_rule' => 'Default password equals Staff ID.',
+			'permissions_page_count' => count($pages),
+			'summary' => [
+				'username' => $auditUser['username'],
+				'email' => $auditUser['email'],
+				'role' => $auditUser['role'],
+				'status' => $auditUser['status'],
+			],
+		],
+	]);
 
 	json_response(true, 'User created successfully. Default password is the Staff ID.', [
 		'staff_id' => $staffId,
@@ -352,10 +440,25 @@ function update_user(mysqli $conn): void
 
 	$existingUser = fetch_user_by_id($conn, $userId);
 	if (!$existingUser) {
+		hyphen_audit_action($conn, 'sys_users', 'update_user', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => (string) $userId,
+			'metadata' => ['reason' => 'user_not_found'],
+		]);
 		json_response(false, 'User record not found.', [], 404);
 	}
+	$existingAuditUser = audit_user_snapshot($existingUser);
 
 	if ((string) ($existingUser['staff_id'] ?? '') !== $currentStaffId) {
+		hyphen_audit_action($conn, 'sys_users', 'update_user', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => (string) $userId,
+			'target_label' => $currentStaffId,
+			'old_values' => $existingAuditUser,
+			'metadata' => ['reason' => 'user_reference_mismatch'],
+		]);
 		json_response(false, 'User reference mismatch.', [], 409);
 	}
 
@@ -373,8 +476,28 @@ function update_user(mysqli $conn): void
 	mysqli_stmt_bind_param($duplicateStatement, 'ssi', $username, $email, $userId);
 	mysqli_stmt_execute($duplicateStatement);
 	mysqli_stmt_store_result($duplicateStatement);
+	$updatedAuditUser = audit_user_snapshot([
+		'username' => $username,
+		'staff_id' => $currentStaffId,
+		'email' => $email,
+		'phone' => $phone,
+		'designation' => $designation,
+		'role' => $role,
+		'status' => $status === '' ? (string) ($existingUser['status'] ?? 'active') : $status,
+		'menu_rights' => (array) $menuRights,
+		'image_url' => (string) ($existingUser['image_url'] ?? ''),
+	]);
 	if (mysqli_stmt_num_rows($duplicateStatement) > 0) {
 		mysqli_stmt_close($duplicateStatement);
+		hyphen_audit_action($conn, 'sys_users', 'update_user', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => (string) $userId,
+			'target_label' => $currentStaffId,
+			'old_values' => $existingAuditUser,
+			'new_values' => $updatedAuditUser,
+			'metadata' => ['reason' => 'duplicate_user'],
+		]);
 		json_response(false, 'Username or email already exists.', [], 409);
 	}
 	mysqli_stmt_close($duplicateStatement);
@@ -385,6 +508,8 @@ function update_user(mysqli $conn): void
 	$imageUrl = handle_profile_image($currentStaffId, (string) ($existingUser['image_url'] ?? ''));
 	$menuRightsJson = json_encode($enabledMenus, JSON_UNESCAPED_UNICODE);
 	$passwordToStore = trim($newPassword) !== '' ? password_hash($newPassword, PASSWORD_DEFAULT) : (string) ($existingUser['password'] ?? '');
+	$updatedAuditUser['menu_rights'] = $enabledMenus;
+	$updatedAuditUser['image_url'] = $imageUrl;
 
 	mysqli_begin_transaction($conn);
 
@@ -399,6 +524,15 @@ function update_user(mysqli $conn): void
 		$error = mysqli_stmt_error($userStatement);
 		mysqli_stmt_close($userStatement);
 		mysqli_rollback($conn);
+		hyphen_audit_action($conn, 'sys_users', 'update_user', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => (string) $userId,
+			'target_label' => $currentStaffId,
+			'old_values' => $existingAuditUser,
+			'new_values' => $updatedAuditUser,
+			'metadata' => ['error' => $error, 'password_updated' => trim($newPassword) !== ''],
+		]);
 		json_response(false, 'Failed to update user: ' . $error, [], 500);
 	}
 	mysqli_stmt_close($userStatement);
@@ -407,10 +541,31 @@ function update_user(mysqli $conn): void
 		sync_user_permissions($conn, $currentStaffId, $pages, $enabledMenus, (array) $permissions);
 	} catch (Throwable $exception) {
 		mysqli_rollback($conn);
+		hyphen_audit_action($conn, 'sys_users', 'update_user', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => (string) $userId,
+			'target_label' => $currentStaffId,
+			'old_values' => $existingAuditUser,
+			'new_values' => $updatedAuditUser,
+			'metadata' => ['error' => $exception->getMessage(), 'password_updated' => trim($newPassword) !== ''],
+		]);
 		json_response(false, $exception->getMessage(), [], 500);
 	}
 
 	mysqli_commit($conn);
+
+	hyphen_audit_action($conn, 'sys_users', 'update_user', [
+		'entity_type' => 'user',
+		'entity_id' => (string) $userId,
+		'target_label' => $currentStaffId,
+		'old_values' => $existingAuditUser,
+		'new_values' => $updatedAuditUser,
+		'metadata' => [
+			'permissions_page_count' => count($pages),
+			'password_updated' => trim($newPassword) !== '',
+		],
+	]);
 
 	if ((string) ($_SESSION['staff_id'] ?? '') === $currentStaffId) {
 		$_SESSION['username'] = $username;
@@ -431,19 +586,43 @@ function toggle_user_status(mysqli $conn): void
 
 	$user = fetch_user_by_id($conn, $userId);
 	if (!$user) {
+		hyphen_audit_action($conn, 'sys_users', 'toggle_user_status', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => (string) $userId,
+			'metadata' => ['reason' => 'user_not_found'],
+		]);
 		json_response(false, 'User record not found.', [], 404);
 	}
 
 	$staffId = trim((string) ($user['staff_id'] ?? ''));
 	if ($staffId === '') {
+		hyphen_audit_action($conn, 'sys_users', 'toggle_user_status', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => (string) $userId,
+			'old_values' => audit_user_snapshot($user),
+			'metadata' => ['reason' => 'missing_staff_id'],
+		]);
 		json_response(false, 'User record is missing staff ID.', [], 422);
 	}
 
 	$currentStaffId = trim((string) ($_SESSION['staff_id'] ?? ''));
 	$currentStatus = trim((string) ($user['status'] ?? ''));
 	$nextStatus = user_status_is_active($currentStatus) ? 'inactive' : 'active';
+	$oldStatus = ['status' => $currentStatus];
+	$newStatus = ['status' => $nextStatus];
 
 	if ($currentStaffId !== '' && $currentStaffId === $staffId && $nextStatus !== 'active') {
+		hyphen_audit_action($conn, 'sys_users', 'toggle_user_status', [
+			'status' => 'denied',
+			'entity_type' => 'user',
+			'entity_id' => (string) $userId,
+			'target_label' => $staffId,
+			'old_values' => $oldStatus,
+			'new_values' => $newStatus,
+			'metadata' => ['reason' => 'self_deactivation_denied'],
+		]);
 		json_response(false, 'You cannot deactivate your own account.', [], 422);
 	}
 
@@ -456,9 +635,26 @@ function toggle_user_status(mysqli $conn): void
 	if (!mysqli_stmt_execute($statement)) {
 		$error = mysqli_stmt_error($statement);
 		mysqli_stmt_close($statement);
+		hyphen_audit_action($conn, 'sys_users', 'toggle_user_status', [
+			'status' => 'failed',
+			'entity_type' => 'user',
+			'entity_id' => (string) $userId,
+			'target_label' => $staffId,
+			'old_values' => $oldStatus,
+			'new_values' => $newStatus,
+			'metadata' => ['error' => $error],
+		]);
 		json_response(false, 'Failed to update user status: ' . $error, [], 500);
 	}
 	mysqli_stmt_close($statement);
+
+	hyphen_audit_action($conn, 'sys_users', 'toggle_user_status', [
+		'entity_type' => 'user',
+		'entity_id' => (string) $userId,
+		'target_label' => $staffId,
+		'old_values' => $oldStatus,
+		'new_values' => $newStatus,
+	]);
 
 	json_response(true, 'User status updated successfully.', [
 		'user_id' => $userId,

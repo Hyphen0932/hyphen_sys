@@ -1,6 +1,7 @@
 <?php
 include_once '../../../build/config.php';
 include_once '../../../build/authorization.php';
+include_once '../../../build/audit.php';
 
 header('Content-Type: application/json; charset=utf-8');
 mysqli_set_charset($conn, 'utf8mb4');
@@ -228,6 +229,60 @@ function require_menu_exists(mysqli $conn, string $menuId): void
 	mysqli_stmt_close($statement);
 }
 
+function fetch_menu_by_id(mysqli $conn, int $id): ?array
+{
+	$statement = mysqli_prepare($conn, 'SELECT id, category, link, menu_id, menu_name, menu_icon FROM hy_user_menu WHERE id = ? LIMIT 1');
+	if (!$statement) {
+		return null;
+	}
+
+	mysqli_stmt_bind_param($statement, 'i', $id);
+	mysqli_stmt_execute($statement);
+	$result = mysqli_stmt_get_result($statement);
+	$row = $result ? mysqli_fetch_assoc($result) : null;
+	mysqli_stmt_close($statement);
+
+	return $row ?: null;
+}
+
+function fetch_page_by_id(mysqli $conn, int $id): ?array
+{
+	$statement = mysqli_prepare($conn, 'SELECT id, menu_id, display_name, page_name, page_url, page_order FROM hy_user_pages WHERE id = ? LIMIT 1');
+	if (!$statement) {
+		return null;
+	}
+
+	mysqli_stmt_bind_param($statement, 'i', $id);
+	mysqli_stmt_execute($statement);
+	$result = mysqli_stmt_get_result($statement);
+	$row = $result ? mysqli_fetch_assoc($result) : null;
+	mysqli_stmt_close($statement);
+
+	return $row ?: null;
+}
+
+function audit_menu_snapshot(array $menu): array
+{
+	return [
+		'category' => trim((string) ($menu['category'] ?? '')),
+		'link' => trim((string) ($menu['link'] ?? '')),
+		'menu_id' => trim((string) ($menu['menu_id'] ?? '')),
+		'menu_name' => trim((string) ($menu['menu_name'] ?? '')),
+		'menu_icon' => trim((string) ($menu['menu_icon'] ?? '')),
+	];
+}
+
+function audit_page_snapshot(array $page): array
+{
+	return [
+		'menu_id' => trim((string) ($page['menu_id'] ?? '')),
+		'display_name' => trim((string) ($page['display_name'] ?? '')),
+		'page_name' => trim((string) ($page['page_name'] ?? '')),
+		'page_url' => normalize_path((string) ($page['page_url'] ?? '')),
+		'page_order' => trim((string) ($page['page_order'] ?? '')),
+	];
+}
+
 function validate_required_ability(string $ability): string
 {
 	$ability = strtolower(trim($ability));
@@ -320,8 +375,36 @@ function add_menu(mysqli $conn): void
 		mysqli_commit($conn);
 	} catch (Throwable $exception) {
 		mysqli_rollback($conn);
+		hyphen_audit_action($conn, 'system_menu', 'add_menu', [
+			'status' => 'failed',
+			'entity_type' => 'menu',
+			'entity_id' => $menuId,
+			'target_label' => $menuName,
+			'new_values' => audit_menu_snapshot([
+				'category' => $category,
+				'link' => $link,
+				'menu_id' => $menuId,
+				'menu_name' => $menuName,
+				'menu_icon' => $menuIcon,
+			]),
+			'metadata' => ['error' => $exception->getMessage()],
+		]);
 		json_response(false, 'Failed to create menu directory: ' . $exception->getMessage(), [], 500);
 	}
+
+	hyphen_audit_action($conn, 'system_menu', 'add_menu', [
+		'entity_type' => 'menu',
+		'entity_id' => $menuId,
+		'target_label' => $menuName,
+		'new_values' => audit_menu_snapshot([
+			'category' => $category,
+			'link' => $link,
+			'menu_id' => $menuId,
+			'menu_name' => $menuName,
+			'menu_icon' => $menuIcon,
+		]),
+		'metadata' => ['summary' => ['category' => $category, 'link' => $link]],
+	]);
 
 	json_response(true, 'Menu created successfully.');
 }
@@ -354,6 +437,15 @@ function update_menu(mysqli $conn): void
 	}
 
 	mysqli_stmt_close($duplicateStatement);
+	$existingMenu = fetch_menu_by_id($conn, $id);
+	$existingMenuAudit = is_array($existingMenu) ? audit_menu_snapshot($existingMenu) : [];
+	$updatedMenuAudit = audit_menu_snapshot([
+		'category' => $category,
+		'link' => $link,
+		'menu_id' => $menuId,
+		'menu_name' => $menuName,
+		'menu_icon' => $menuIcon,
+	]);
 
 	$statement = mysqli_prepare($conn, 'UPDATE hy_user_menu SET category = ?, link = ?, menu_id = ?, menu_name = ?, menu_icon = ? WHERE id = ?');
 	if (!$statement) {
@@ -364,10 +456,27 @@ function update_menu(mysqli $conn): void
 	if (!mysqli_stmt_execute($statement)) {
 		$error = mysqli_stmt_error($statement);
 		mysqli_stmt_close($statement);
+		hyphen_audit_action($conn, 'system_menu', 'update_menu', [
+			'status' => 'failed',
+			'entity_type' => 'menu',
+			'entity_id' => (string) $id,
+			'target_label' => $menuName,
+			'old_values' => $existingMenuAudit,
+			'new_values' => $updatedMenuAudit,
+			'metadata' => ['error' => $error, 'summary' => ['category' => $category, 'link' => $link]],
+		]);
 		json_response(false, 'Failed to update menu: ' . $error, [], 500);
 	}
 
 	mysqli_stmt_close($statement);
+	hyphen_audit_action($conn, 'system_menu', 'update_menu', [
+		'entity_type' => 'menu',
+		'entity_id' => (string) $id,
+		'target_label' => $menuName,
+		'old_values' => $existingMenuAudit,
+		'new_values' => $updatedMenuAudit,
+		'metadata' => ['summary' => ['category' => $category, 'link' => $link]],
+	]);
 	json_response(true, 'Menu updated successfully.');
 }
 
@@ -393,6 +502,7 @@ function delete_menu(mysqli $conn): void
 	}
 
 	mysqli_stmt_close($menuLookup);
+	$existingMenu = fetch_menu_by_id($conn, $id);
 
 	mysqli_begin_transaction($conn);
 
@@ -426,8 +536,24 @@ function delete_menu(mysqli $conn): void
 		mysqli_commit($conn);
 	} catch (Throwable $exception) {
 		mysqli_rollback($conn);
+		hyphen_audit_action($conn, 'system_menu', 'delete_menu', [
+			'status' => 'failed',
+			'entity_type' => 'menu',
+			'entity_id' => (string) $id,
+			'target_label' => (string) ($existingMenu['menu_name'] ?? $menuId),
+			'old_values' => audit_menu_snapshot($existingMenu ?? []),
+			'metadata' => ['error' => $exception->getMessage()],
+		]);
 		json_response(false, 'Failed to delete menu: ' . $exception->getMessage(), [], 500);
 	}
+
+	hyphen_audit_action($conn, 'system_menu', 'delete_menu', [
+		'entity_type' => 'menu',
+		'entity_id' => (string) $id,
+		'target_label' => (string) ($existingMenu['menu_name'] ?? $menuId),
+		'old_values' => audit_menu_snapshot($existingMenu ?? []),
+		'metadata' => ['summary' => ['menu_id' => $menuId]],
+	]);
 
 	json_response(true, 'Menu deleted successfully.');
 }
@@ -488,12 +614,40 @@ function add_page(mysqli $conn): void
 		mysqli_commit($conn);
 	} catch (Throwable $exception) {
 		mysqli_rollback($conn);
+		hyphen_audit_action($conn, 'system_menu', 'add_page', [
+			'status' => 'failed',
+			'entity_type' => 'page',
+			'entity_id' => $pageUrl,
+			'target_label' => $displayName,
+			'new_values' => audit_page_snapshot([
+				'menu_id' => $menuId,
+				'display_name' => $displayName,
+				'page_name' => $pageName,
+				'page_url' => $pageUrl,
+				'page_order' => $pageOrder,
+			]),
+			'metadata' => ['error' => $exception->getMessage(), 'artifact_debug' => page_artifact_debug_info($pageUrl)],
+		]);
 		json_response(false, 'Failed to create page file: ' . $exception->getMessage(), [
 			'page_url' => $pageUrl,
 			'page_name' => $pageName,
 			'artifact_debug' => page_artifact_debug_info($pageUrl),
 		], 500);
 	}
+
+	hyphen_audit_action($conn, 'system_menu', 'add_page', [
+		'entity_type' => 'page',
+		'entity_id' => $pageUrl,
+		'target_label' => $displayName,
+		'new_values' => audit_page_snapshot([
+			'menu_id' => $menuId,
+			'display_name' => $displayName,
+			'page_name' => $pageName,
+			'page_url' => $pageUrl,
+			'page_order' => $pageOrder,
+		]),
+		'metadata' => ['required_ability' => $requiredAbility],
+	]);
 
 	json_response(true, 'Sub menu created successfully.');
 }
@@ -520,6 +674,16 @@ function update_page(mysqli $conn): void
 		json_response(false, 'Page URL and file name must both be filled or both be empty.', [], 422);
 	}
 
+	$existingPage = fetch_page_by_id($conn, $id);
+	$existingPageAudit = is_array($existingPage) ? audit_page_snapshot($existingPage) : [];
+	$updatedPageAudit = audit_page_snapshot([
+		'menu_id' => $menuId,
+		'display_name' => $displayName,
+		'page_name' => $pageName,
+		'page_url' => $pageUrl,
+		'page_order' => $pageOrder,
+	]);
+
 	assert_page_name_matches_url($pageUrl, $pageName);
 	validate_relative_page_path($pageUrl);
 
@@ -542,10 +706,27 @@ function update_page(mysqli $conn): void
 	if (!mysqli_stmt_execute($statement)) {
 		$error = mysqli_stmt_error($statement);
 		mysqli_stmt_close($statement);
+		hyphen_audit_action($conn, 'system_menu', 'update_page', [
+			'status' => 'failed',
+			'entity_type' => 'page',
+			'entity_id' => (string) $id,
+			'target_label' => $displayName,
+			'old_values' => $existingPageAudit,
+			'new_values' => $updatedPageAudit,
+			'metadata' => ['error' => $error, 'required_ability' => $requiredAbility],
+		]);
 		json_response(false, 'Failed to update submenu: ' . $error, [], 500);
 	}
 
 	mysqli_stmt_close($statement);
+	hyphen_audit_action($conn, 'system_menu', 'update_page', [
+		'entity_type' => 'page',
+		'entity_id' => (string) $id,
+		'target_label' => $displayName,
+		'old_values' => $existingPageAudit,
+		'new_values' => $updatedPageAudit,
+		'metadata' => ['required_ability' => $requiredAbility],
+	]);
 	json_response(true, 'Sub menu updated successfully.');
 }
 
@@ -557,6 +738,7 @@ function delete_page(mysqli $conn): void
 	}
 
 	$statement = mysqli_prepare($conn, 'DELETE FROM hy_user_pages WHERE id = ?');
+	$existingPage = fetch_page_by_id($conn, $id);
 	if (!$statement) {
 		json_response(false, 'Failed to prepare submenu delete.', [], 500);
 	}
@@ -565,9 +747,24 @@ function delete_page(mysqli $conn): void
 	if (!mysqli_stmt_execute($statement)) {
 		$error = mysqli_stmt_error($statement);
 		mysqli_stmt_close($statement);
+		hyphen_audit_action($conn, 'system_menu', 'delete_page', [
+			'status' => 'failed',
+			'entity_type' => 'page',
+			'entity_id' => (string) $id,
+			'target_label' => (string) ($existingPage['display_name'] ?? ''),
+			'old_values' => audit_page_snapshot($existingPage ?? []),
+			'metadata' => ['error' => $error],
+		]);
 		json_response(false, 'Failed to delete submenu: ' . $error, [], 500);
 	}
 
 	mysqli_stmt_close($statement);
+	hyphen_audit_action($conn, 'system_menu', 'delete_page', [
+		'entity_type' => 'page',
+		'entity_id' => (string) $id,
+		'target_label' => (string) ($existingPage['display_name'] ?? ''),
+		'old_values' => audit_page_snapshot($existingPage ?? []),
+		'metadata' => ['summary' => ['page_url' => (string) ($existingPage['page_url'] ?? '')]],
+	]);
 	json_response(true, 'Sub menu deleted successfully.');
 }
