@@ -12,7 +12,7 @@ $dbError = null;
 $mailConfig = hyphen_mail_config();
 $mailConfigured = hyphen_mail_is_configured($mailConfig);
 $mailMissingConfig = hyphen_mail_missing_config_keys($mailConfig);
-$emailApiUrl = '../../api/email_notifications.php';
+$emailApiUrl = '../../api/email/email_notifications.php';
 
 include_once '../../include/h_main.php';
 include_once '../../include/h_cstable.php';
@@ -40,14 +40,17 @@ include_once '../../include/h_cstable.php';
         border-top: 1px solid #e9ecef;
     }
 
-    #templateTextPreview {
-        min-height: 120px;
-        max-height: 200px;
-        overflow: auto;
+    #templatePreviewSidebar .card {
+        height: 100%;
     }
 
     #templateHtmlPreview {
-        min-height: 220px;
+        min-height: 560px;
+    }
+
+    #templateVariablePreview {
+        max-height: 220px;
+        overflow: auto;
     }
 </style>
 <!-- Start::content -->
@@ -106,7 +109,7 @@ include_once '../../include/h_cstable.php';
                     <?php if (!$mailConfigured): ?>
                         Missing mail config: <?php echo htmlspecialchars(implode(', ', $mailMissingConfig)); ?>
                     <?php else: ?>
-                        Gmail SMTP is configured. 
+                        Gmail SMTP is configured.
                     <?php endif; ?>
                 </div>
 
@@ -186,7 +189,7 @@ include_once '../../include/h_cstable.php';
                         <textarea id="testVariables" name="variables" class="form-control" rows="6" placeholder='{"username":"Steve","request_no":"REQ-001"}'></textarea>
                     </div>
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary" <?php echo $canEditEmail ? '' : 'disabled'; ?>>Send Test Email</button>
+                        <button type="submit" class="btn btn-primary" id="sendTestEmailBtn" <?php echo $canEditEmail ? '' : 'disabled'; ?>>Send Test Email</button>
                         <button type="button" class="btn btn-outline-secondary" id="refreshLogsBtn">Refresh Logs</button>
                     </div>
                 </form>
@@ -282,65 +285,52 @@ include_once '../../include/h_cstable.php';
                             <label for="templateSubject" class="form-label">Email Subject</label>
                             <input type="text" id="templateSubject" name="email_subject" class="form-control" maxlength="255" placeholder="Welcome {{username}}" required>
                         </div>
-                        <div class="col-lg-8">
+                        <textarea id="templateText" name="body_text" class="d-none"></textarea>
+                        <div class="col-lg-5">
                             <label for="templateHtml" class="form-label">HTML Body</label>
-                            <textarea id="templateHtml" name="body_html" class="form-control" rows="12" placeholder="<p>Hello {{username}}</p>" required></textarea>
+                            <textarea id="templateHtml" name="body_html" class="form-control" rows="24" placeholder="<p>Hello {{username}}</p>" required></textarea>
                         </div>
-                        <div class="col-lg-4">
-                            <label for="templateText" class="form-label">Plain Text Body</label>
-                            <textarea id="templateText" name="body_text" class="form-control" rows="5" placeholder="Hello {{username}}"></textarea>
-                            <label for="templateVariables" class="form-label mt-3">Variables JSON</label>
-                            <textarea id="templateVariables" name="variables" class="form-control" rows="6" placeholder='{"username":"User Name","request_no":"REQ-001"}'></textarea>
-                            <div class="form-check form-switch mt-3">
-                                <input class="form-check-input" type="checkbox" role="switch" id="templateActive" name="is_active" checked>
-                                <label class="form-check-label" for="templateActive">Template Active</label>
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <div class="row g-3 mt-1">
-                                <div class="col-lg-4">
-                                    <div class="card border shadow-none h-100">
-                                        <div class="card-header">
-                                            <div class="card-title mb-0">Variable Preview</div>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="mb-3">
-                                                <div class="fw-semibold mb-2">Detected Placeholders</div>
-                                                <div id="templateDetectedVariables" class="d-flex flex-wrap gap-2"></div>
-                                            </div>
-                                            <div>
-                                                <div class="fw-semibold mb-2">Preview Values</div>
-                                                <div id="templateVariablePreview" class="small text-muted"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-lg-4">
-                                    <div class="card border shadow-none h-100">
-                                        <div class="card-header">
-                                            <div class="card-title mb-0">Rendered Preview</div>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="mb-3">
-                                                <div class="fw-semibold mb-1">Subject</div>
-                                                <div id="templateSubjectPreview" class="text-muted small"></div>
-                                            </div>
-                                            <div>
-                                                <div class="fw-semibold mb-1">Plain Text</div>
-                                                <pre id="templateTextPreview" class="small bg-light border rounded p-2 mb-0" style="white-space: pre-wrap; min-height: 180px;"></pre>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-lg-4">
-                                    <div class="card border shadow-none h-100">
+                        <div class="col-lg-7">
+                            <div class="row g-3" id="templatePreviewSidebar">
+                                <div class="col-12">
+                                    <div class="card border shadow-2">
                                         <div class="card-header">
                                             <div class="card-title mb-0">HTML Preview</div>
                                         </div>
                                         <div class="card-body">
                                             <div id="templatePreviewStatus" class="small text-muted mb-2">Preview updates automatically as you type.</div>
-                                            <iframe id="templateHtmlPreview" title="Template HTML Preview" class="w-100 border rounded bg-white" style="min-height: 320px;" sandbox=""></iframe>
+                                            <iframe id="templateHtmlPreview" title="Template HTML Preview" class="w-100 border rounded bg-white" style="min-height: 460px;" sandbox=""></iframe>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="card border shadow-none">
+                                <div class="card-header">
+                                    <div class="card-title mb-0">Variable Preview</div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3" style="display: none;">
+                                        <label for="templateVariables" class="form-label">Variables JSON</label>
+                                        <textarea id="templateVariables" name="variables" class="form-control" rows="7" placeholder='{"username":"User Name","request_no":"REQ-001"}'></textarea>
+                                        <div class="form-text">Optional sample values for preview and test rendering.</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="fw-semibold mb-1">Rendered Subject</div>
+                                        <div id="templateSubjectPreview" class="small text-muted"></div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="fw-semibold mb-2">Detected Placeholders</div>
+                                        <div id="templateDetectedVariables" class="d-flex flex-wrap gap-2"></div>
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold mb-2">Preview Values</div>
+                                        <div id="templateVariablePreview" class="small text-muted"></div>
+                                    </div>
+                                    <div class="form-check form-switch mt-3">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="templateActive" name="is_active" checked>
+                                        <label class="form-check-label" for="templateActive">Template Active</label>
                                     </div>
                                 </div>
                             </div>
@@ -375,6 +365,7 @@ include_once '../../include/h_jstable.php';
         const emailTestForm = document.getElementById('emailTestForm');
         const openTemplateModalBtn = document.getElementById('openTemplateModalBtn');
         const refreshLogsBtn = document.getElementById('refreshLogsBtn');
+        const sendTestEmailBtn = document.getElementById('sendTestEmailBtn');
         const templateIdInput = document.getElementById('templateId');
         const templateCategoryInput = document.getElementById('templateCategory');
         const templateCodeInput = document.getElementById('templateCode');
@@ -403,7 +394,6 @@ include_once '../../include/h_jstable.php';
         const templateDetectedVariables = document.getElementById('templateDetectedVariables');
         const templateVariablePreview = document.getElementById('templateVariablePreview');
         const templateSubjectPreview = document.getElementById('templateSubjectPreview');
-        const templateTextPreview = document.getElementById('templateTextPreview');
         const templatePreviewStatus = document.getElementById('templatePreviewStatus');
         const templateHtmlPreview = document.getElementById('templateHtmlPreview');
 
@@ -490,8 +480,12 @@ include_once '../../include/h_jstable.php';
             return '<code>' + escapeHtml(String(value)) + '</code>';
         }
 
+        function templateTextValue() {
+            return templateTextInput ? templateTextInput.value : '';
+        }
+
         function extractTemplateVariables() {
-            const combined = [templateSubjectInput.value, templateHtmlInput.value, templateTextInput.value].join('\n');
+            const combined = [templateSubjectInput.value, templateHtmlInput.value, templateTextValue()].join('\n');
             const matches = combined.match(/{{\s*[a-zA-Z0-9_.-]+\s*}}/g) || [];
             const keys = matches.map(function(match) {
                 return match.replace(/[{}\s]/g, '');
@@ -503,18 +497,30 @@ include_once '../../include/h_jstable.php';
         function getTemplatePreviewVariables() {
             const raw = templateVariablesInput.value.trim();
             if (raw === '') {
-                return { values: {}, error: '' };
+                return {
+                    values: {},
+                    error: ''
+                };
             }
 
             try {
                 const parsed = JSON.parse(raw);
                 if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-                    return { values: {}, error: 'Variables JSON must be an object.' };
+                    return {
+                        values: {},
+                        error: 'Variables JSON must be an object.'
+                    };
                 }
 
-                return { values: parsed, error: '' };
+                return {
+                    values: parsed,
+                    error: ''
+                };
             } catch (error) {
-                return { values: {}, error: 'Variables JSON is invalid.' };
+                return {
+                    values: {},
+                    error: 'Variables JSON is invalid.'
+                };
             }
         }
 
@@ -543,7 +549,20 @@ include_once '../../include/h_jstable.php';
             return $('<div>').html(value || '').text();
         }
 
+        function isFullHtmlDocument(html) {
+            const normalized = String(html || '').trim().toLowerCase();
+            if (normalized === '') {
+                return false;
+            }
+
+            return /<(?:!doctype\s+html|html|head|body)(?:\s|>)/i.test(normalized);
+        }
+
         function buildPreviewDocument(html) {
+            if (isFullHtmlDocument(html)) {
+                return html;
+            }
+
             return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:Segoe UI,Tahoma,sans-serif;padding:16px;color:#1f2937;line-height:1.5;}img{max-width:100%;height:auto;}table{max-width:100%;}a{color:#0d6efd;}</style></head><body>' + html + '</body></html>';
         }
 
@@ -553,11 +572,11 @@ include_once '../../include/h_jstable.php';
             const detectedVariables = extractTemplateVariables();
 
             if (templateDetectedVariables) {
-                templateDetectedVariables.innerHTML = detectedVariables.length
-                    ? detectedVariables.map(function(key) {
+                templateDetectedVariables.innerHTML = detectedVariables.length ?
+                    detectedVariables.map(function(key) {
                         return '<span class="badge bg-primary-transparent text-primary">{{' + escapeHtml(key) + '}}</span>';
-                    }).join('')
-                    : '<span class="text-muted small">No placeholders detected.</span>';
+                    }).join('') :
+                    '<span class="text-muted small">No placeholders detected.</span>';
             }
 
             if (templateVariablePreview) {
@@ -574,21 +593,19 @@ include_once '../../include/h_jstable.php';
 
             const renderedSubject = renderTemplateString(templateSubjectInput.value, variables);
             const renderedHtml = renderTemplateString(templateHtmlInput.value, variables);
-            const renderedText = templateTextInput.value.trim() !== ''
-                ? renderTemplateString(templateTextInput.value, variables)
-                : stripHtml(renderedHtml);
+            const renderedText = templateTextValue().trim() !== '' ?
+                renderTemplateString(templateTextValue(), variables) :
+                stripHtml(renderedHtml);
 
             if (templateSubjectPreview) {
                 templateSubjectPreview.textContent = renderedSubject || 'No subject yet.';
             }
 
-            if (templateTextPreview) {
-                templateTextPreview.textContent = renderedText || 'No plain text preview yet.';
-            }
-
             if (templatePreviewStatus) {
                 templatePreviewStatus.className = 'small mb-2 ' + (previewData.error ? 'text-danger' : 'text-muted');
-                templatePreviewStatus.textContent = previewData.error || 'Preview updates automatically as you type.';
+                templatePreviewStatus.textContent = previewData.error || (isFullHtmlDocument(renderedHtml) ?
+                    'Rendering full HTML document preview.' :
+                    'Preview updates automatically as you type. Plain text falls back to stripped HTML when empty.');
             }
 
             if (templateHtmlPreview) {
@@ -604,12 +621,18 @@ include_once '../../include/h_jstable.php';
             };
 
             if (method === 'GET') {
-                const params = new URLSearchParams({ action, ...payload });
+                const params = new URLSearchParams({
+                    action,
+                    ...payload
+                });
                 return fetch(emailApiUrl + '?' + params.toString(), options).then((response) => response.json());
             }
 
             options.headers['Content-Type'] = 'application/json';
-            options.body = JSON.stringify({ action, ...payload });
+            options.body = JSON.stringify({
+                action,
+                ...payload
+            });
             return fetch(emailApiUrl, options).then((response) => response.json());
         }
 
@@ -621,6 +644,29 @@ include_once '../../include/h_jstable.php';
             mailConfigForm.classList.toggle('d-none', !visible);
         }
 
+        function setSendTestButtonLoading(loading) {
+            if (!sendTestEmailBtn) {
+                return;
+            }
+
+            if (!sendTestEmailBtn.dataset.defaultHtml) {
+                sendTestEmailBtn.dataset.defaultHtml = sendTestEmailBtn.innerHTML;
+            }
+
+            if (loading) {
+                sendTestEmailBtn.disabled = true;
+                sendTestEmailBtn.classList.remove('btn-primary');
+                sendTestEmailBtn.classList.add('btn-primary-light');
+                sendTestEmailBtn.innerHTML = '<span class="spinner-border spinner-border-sm align-middle" role="status" aria-hidden="true"></span><span class="visually-hidden">Loading...</span><span class="ms-2">Sending...</span>';
+                return;
+            }
+
+            sendTestEmailBtn.disabled = !canEditEmail;
+            sendTestEmailBtn.classList.remove('btn-primary-light');
+            sendTestEmailBtn.classList.add('btn-primary');
+            sendTestEmailBtn.innerHTML = sendTestEmailBtn.dataset.defaultHtml;
+        }
+
         function renderMailStatus(configuration, configured, missingConfig) {
             const source = configuration.source || 'env';
             mailConfigSourceLabel.textContent = source;
@@ -629,9 +675,9 @@ include_once '../../include/h_jstable.php';
             mailEncryptionSummary.textContent = (configuration.encryption || '').toUpperCase();
             mailPasswordSummary.textContent = configuration.has_password ? 'Saved in ' + source : 'Not saved';
             mailStatusMessage.className = 'alert mb-3 ' + (configured ? 'alert-info' : 'alert-warning');
-            mailStatusMessage.textContent = configured
-                ? ('Mail transport is configured from ' + source + '. For Gmail, use an App Password.')
-                : ('Missing mail config: ' + (missingConfig || []).join(', '));
+            mailStatusMessage.textContent = configured ?
+                ('Mail transport is configured from ' + source + '. For Gmail, use an App Password.') :
+                ('Missing mail config: ' + (missingConfig || []).join(', '));
 
             mailProviderInput.value = configuration.provider || 'gmail';
             mailHostInput.value = configuration.host || 'smtp.gmail.com';
@@ -669,7 +715,9 @@ include_once '../../include/h_jstable.php';
             templateNameInput.value = template.template_name || '';
             templateSubjectInput.value = template.email_subject || '';
             templateHtmlInput.value = template.body_html || '';
-            templateTextInput.value = template.body_text || '';
+            if (templateTextInput) {
+                templateTextInput.value = template.body_text || '';
+            }
             templateVariablesInput.value = template.variables && Object.keys(template.variables).length ? JSON.stringify(template.variables, null, 2) : '';
             templateActiveInput.checked = !!template.is_active;
             document.getElementById('exampleModalScrollableLabel').textContent = 'Edit Email Template';
@@ -689,9 +737,9 @@ include_once '../../include/h_jstable.php';
             const selectOptions = ['<option value="">Select a template</option>'];
 
             templates.forEach(function(template, index) {
-                const statusBadge = template.is_active
-                    ? '<span class="badge bg-success-transparent text-success">Active</span>'
-                    : '<span class="badge bg-danger-transparent text-danger">Inactive</span>';
+                const statusBadge = template.is_active ?
+                    '<span class="badge bg-success-transparent text-success">Active</span>' :
+                    '<span class="badge bg-danger-transparent text-danger">Inactive</span>';
 
                 const actionButtons = [
                     canEditEmail ? '<button type="button" class="btn btn-sm btn-primary edit-template" data-id="' + template.id + '">Edit</button>' : '<button type="button" class="btn btn-sm btn-primary" disabled>Edit</button>',
@@ -716,7 +764,9 @@ include_once '../../include/h_jstable.php';
         }
 
         async function loadLogs() {
-            const response = await apiRequest('list_logs', { limit: 100 }, 'GET');
+            const response = await apiRequest('list_logs', {
+                limit: 100
+            }, 'GET');
             if (!response.success) {
                 showError(response.message || 'Unable to load logs.');
                 return;
@@ -725,9 +775,9 @@ include_once '../../include/h_jstable.php';
             const logs = response.data.logs || [];
             logTable.clear();
             logs.forEach(function(log, index) {
-                const statusBadge = log.status === 'sent'
-                    ? '<span class="badge bg-success-transparent text-success">Sent</span>'
-                    : '<span class="badge bg-danger-transparent text-danger">' + $('<div>').text(log.status || 'failed').html() + '</span>';
+                const statusBadge = log.status === 'sent' ?
+                    '<span class="badge bg-success-transparent text-success">Sent</span>' :
+                    '<span class="badge bg-danger-transparent text-danger">' + $('<div>').text(log.status || 'failed').html() + '</span>';
 
                 logTable.row.add([
                     index + 1,
@@ -742,7 +792,9 @@ include_once '../../include/h_jstable.php';
         }
 
         async function loadTemplate(templateId) {
-            const response = await apiRequest('get_template', { id: templateId }, 'GET');
+            const response = await apiRequest('get_template', {
+                id: templateId
+            }, 'GET');
             if (!response.success) {
                 showError(response.message || 'Unable to load template.');
                 return;
@@ -799,7 +851,7 @@ include_once '../../include/h_jstable.php';
                 template_name: templateNameInput.value,
                 email_subject: templateSubjectInput.value,
                 body_html: templateHtmlInput.value,
-                body_text: templateTextInput.value,
+                body_text: templateTextValue(),
                 variables,
                 is_active: templateActiveInput.checked
             };
@@ -857,22 +909,30 @@ include_once '../../include/h_jstable.php';
                 }
             }
 
-            const response = await apiRequest('send_test_email', {
-                id: document.getElementById('testTemplateId').value,
-                to_email: document.getElementById('testRecipient').value,
-                variables
-            });
+            setSendTestButtonLoading(true);
 
-            if (!response.success) {
-                showError(response.message || 'Unable to send test email.');
-                return;
+            try {
+                const response = await apiRequest('send_test_email', {
+                    id: document.getElementById('testTemplateId').value,
+                    to_email: document.getElementById('testRecipient').value,
+                    variables
+                });
+
+                if (!response.success) {
+                    showError(response.message || 'Unable to send test email.');
+                    return;
+                }
+
+                await loadLogs();
+                await showSuccess(response.message || 'Test email sent successfully.');
+            } catch (error) {
+                await showError('Unable to send test email.');
+            } finally {
+                setSendTestButtonLoading(false);
             }
-
-            await loadLogs();
-            await showSuccess(response.message || 'Test email sent successfully.');
         });
 
-        [templateSubjectInput, templateHtmlInput, templateTextInput, templateVariablesInput].forEach(function(element) {
+        [templateSubjectInput, templateHtmlInput, templateVariablesInput].forEach(function(element) {
             if (!element) {
                 return;
             }
@@ -892,7 +952,9 @@ include_once '../../include/h_jstable.php';
                 return;
             }
 
-            const response = await apiRequest('delete_template', { id: templateId });
+            const response = await apiRequest('delete_template', {
+                id: templateId
+            });
             if (!response.success) {
                 showError(response.message || 'Unable to delete template.');
                 return;

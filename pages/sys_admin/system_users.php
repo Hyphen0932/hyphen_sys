@@ -115,6 +115,21 @@ include_once '../../include/h_cstable.php';
                                                 <?php else: ?>
                                                     <li><span class="dropdown-item disabled">Edit</span></li>
                                                 <?php endif; ?>
+                                                <?php if ($canEditUsers): ?>
+                                                    <li>
+                                                        <button
+                                                            type="button"
+                                                            class="dropdown-item send-user-email-notification"
+                                                            data-user-id="<?php echo (int) ($user['id'] ?? 0); ?>"
+                                                            data-staff-id="<?php echo htmlspecialchars((string) ($user['staff_id'] ?? '')); ?>"
+                                                            data-email="<?php echo htmlspecialchars((string) ($user['email'] ?? '')); ?>"
+                                                            <?php echo trim((string) ($user['email'] ?? '')) === '' ? 'disabled' : ''; ?>>
+                                                            Email Notification
+                                                        </button>
+                                                    </li>
+                                                <?php else: ?>
+                                                    <li><span class="dropdown-item disabled">Email Notification</span></li>
+                                                <?php endif; ?>
                                                 <li><span class="dropdown-item disabled"><?php echo $canDeleteUsers ? 'Delete (Pending)' : 'Delete'; ?></span></li>
                                             </ul>
                                         </td>
@@ -163,6 +178,71 @@ include_once '../../include/h_jstable.php';
 ?>
 <script>
     $(document).ready(function() {
+        const userEmailNotificationUrl = 'action/sys_users_email_noti.php';
+
+        function showSuccess(message) {
+            if (window.Swal && typeof window.Swal.fire === 'function') {
+                return window.Swal.fire({
+                    title: 'Success',
+                    text: message,
+                    icon: 'success',
+                    confirmButtonText: 'OK'
+                });
+            }
+
+            window.alert(message);
+            return Promise.resolve();
+        }
+
+        function showError(message) {
+            if (window.Swal && typeof window.Swal.fire === 'function') {
+                return window.Swal.fire({
+                    title: 'Error',
+                    text: message,
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+
+            window.alert(message);
+            return Promise.resolve();
+        }
+
+        function showConfirm(message) {
+            if (window.Swal && typeof window.Swal.fire === 'function') {
+                return window.Swal.fire({
+                    title: 'Confirm',
+                    text: message,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes',
+                    cancelButtonText: 'Cancel'
+                }).then(function(result) {
+                    return result.isConfirmed;
+                });
+            }
+
+            return Promise.resolve(window.confirm(message));
+        }
+
+        function setEmailNotificationButtonLoading(button, loading) {
+            if (!button) {
+                return;
+            }
+
+            if (!button.dataset.defaultHtml) {
+                button.dataset.defaultHtml = button.innerHTML;
+            }
+
+            if (loading) {
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm align-middle me-2" role="status" aria-hidden="true"></span><span>Sending...</span>';
+                return;
+            }
+
+            button.disabled = button.dataset.hasEmail !== 'true';
+            button.innerHTML = button.dataset.defaultHtml;
+        }
 
         // basic datatable
         $('#SysUsers').DataTable({
@@ -177,6 +257,49 @@ include_once '../../include/h_jstable.php';
                 className: 'text-center align-middle',
             }],
         });
-        // basic datatable
+
+        $('#SysUsers tbody').on('click', '.send-user-email-notification', async function() {
+            const button = this;
+            const staffId = button.dataset.staffId || '';
+            const email = button.dataset.email || '';
+            const userId = button.dataset.userId || '';
+            const confirmed = await showConfirm('Send login email to ' + staffId + ' <' + email + '> using template NF-00001?');
+
+            if (!confirmed) {
+                return;
+            }
+
+            setEmailNotificationButtonLoading(button, true);
+
+            try {
+                const response = await fetch(userEmailNotificationUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                    },
+                    credentials: 'same-origin',
+                    body: new URLSearchParams({
+                        action: 'send_new_user_login_email',
+                        user_id: userId
+                    }).toString()
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    await showError(result.message || 'Unable to send login email.');
+                    return;
+                }
+
+                await showSuccess(result.message || 'Login email sent successfully.');
+            } catch (error) {
+                await showError('Unable to send login email.');
+            } finally {
+                setEmailNotificationButtonLoading(button, false);
+            }
+        });
+
+        $('.send-user-email-notification').each(function() {
+            this.dataset.hasEmail = ((this.dataset.email || '').trim() !== '').toString();
+        });
     });
 </script>

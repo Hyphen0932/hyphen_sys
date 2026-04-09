@@ -1,8 +1,8 @@
 <?php
 
-include_once __DIR__ . '/../build/config.php';
-include_once __DIR__ . '/../build/authorization.php';
-include_once __DIR__ . '/../build/email_notifications.php';
+include_once __DIR__ . '/../../build/config.php';
+include_once __DIR__ . '/../../build/authorization.php';
+include_once __DIR__ . '/../../build/email_notifications.php';
 
 header('Content-Type: application/json; charset=utf-8');
 mysqli_set_charset($conn, 'utf8mb4');

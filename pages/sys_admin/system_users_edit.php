@@ -285,7 +285,6 @@ include_once '../../include/h_main.php';
                     <div class="ps-0">
                         <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
                             <div class="main-content-label mb-0">Page Access</div>
-                            <div class="text-muted">Menu access is saved to hy_users.menu_rights. Page CRUD is saved to hy_user_permissions.</div>
                         </div>
                         <div class="row">
                             <div class="col-12">
