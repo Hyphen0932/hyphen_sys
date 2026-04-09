@@ -2,6 +2,16 @@ services:
   app:
     ports:
       - "${APP_BIND_IP:-127.0.0.1}:${APP_PORT:-8080}:80"
+    volumes:
+      - ./api:/var/www/html/hyphen_sys/api
+      - ./assets:/var/www/html/hyphen_sys/assets
+      - ./build:/var/www/html/hyphen_sys/build
+      - ./db:/var/www/html/hyphen_sys/db
+      - ./include:/var/www/html/hyphen_sys/include
+      - ./pages:/var/www/html/hyphen_sys/pages
+      - ./404.html:/var/www/html/hyphen_sys/404.html
+      - ./index.html:/var/www/html/hyphen_sys/index.html
+      - ./.htaccess:/var/www/html/hyphen_sys/.htaccess
 
   db:
     ports:

@@ -20,6 +20,14 @@
 
 ## 2. 开发环境
 
+说明：开发环境会把主要源码目录直接 bind mount 到 `app` 容器中。
+
+这意味着：
+
+- 你在主机工作区修改 `pages/`、`build/`、`include/`、`api/` 等代码，容器会立即看到
+- 系统在开发环境运行时动态创建的页面文件，也会直接写回主机工作区
+- `vendor/` 仍然使用镜像内安装好的依赖，不会被开发目录覆盖
+
 启动开发环境：
 
 ```powershell
@@ -43,6 +51,8 @@ docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f do
 ```powershell
 docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml down
 ```
+
+当你修改了 `docker-compose.dev.yml` 的挂载配置后，建议重新执行一次开发部署，确保容器按新的挂载方式启动。
 
 删除开发环境数据：
 

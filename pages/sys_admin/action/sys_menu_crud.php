@@ -107,6 +107,27 @@ function empty_page_template_path(): string
 	return pages_root_path() . DIRECTORY_SEPARATOR . 'template' . DIRECTORY_SEPARATOR . 'empty_page.php';
 }
 
+function page_artifact_debug_info(string $pageUrl): array
+{
+	$pageUrl = normalize_path($pageUrl);
+	$templatePath = empty_page_template_path();
+	$targetFilePath = pages_root_path() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $pageUrl) . '.php';
+	$targetDirectory = dirname($targetFilePath);
+
+	return [
+		'normalized_page_url' => $pageUrl,
+		'template_path' => $templatePath,
+		'template_exists' => is_file($templatePath),
+		'target_file_path' => $targetFilePath,
+		'target_file_exists' => is_file($targetFilePath),
+		'target_directory' => $targetDirectory,
+		'target_directory_exists' => is_dir($targetDirectory),
+		'target_directory_writable' => is_dir($targetDirectory) ? is_writable($targetDirectory) : false,
+		'pages_root' => pages_root_path(),
+		'pages_root_writable' => is_writable(pages_root_path()),
+	];
+}
+
 function validate_relative_page_path(string $relativePath): void
 {
 	if ($relativePath === '') {
@@ -182,7 +203,9 @@ function ensure_page_artifact(string $pageUrl): void
 	}
 
 	if (!copy($templatePath, $targetFilePath)) {
-		throw new RuntimeException('Unable to create page file: ' . $targetFilePath);
+		$copyError = error_get_last();
+		$copyMessage = is_array($copyError) && !empty($copyError['message']) ? ' Copy error: ' . $copyError['message'] : '';
+		throw new RuntimeException('Unable to create page file: ' . $targetFilePath . $copyMessage);
 	}
 }
 
@@ -465,7 +488,11 @@ function add_page(mysqli $conn): void
 		mysqli_commit($conn);
 	} catch (Throwable $exception) {
 		mysqli_rollback($conn);
-		json_response(false, 'Failed to create page file: ' . $exception->getMessage(), [], 500);
+		json_response(false, 'Failed to create page file: ' . $exception->getMessage(), [
+			'page_url' => $pageUrl,
+			'page_name' => $pageName,
+			'artifact_debug' => page_artifact_debug_info($pageUrl),
+		], 500);
 	}
 
 	json_response(true, 'Sub menu created successfully.');
