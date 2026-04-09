@@ -39,10 +39,10 @@ if (!function_exists('hyphen_build_page_location')) {
 	{
 		$pageUrl = hyphen_normalize_page_key($pageUrl);
 		if ($pageUrl === '') {
-			return hyphen_session_root_prefix() . '/pages/template/empty_page.php';
+			return hyphen_session_root_prefix() . '/pages/template/empty_page';
 		}
 
-		return hyphen_session_root_prefix() . '/pages/' . $pageUrl . '.php';
+		return hyphen_session_root_prefix() . '/pages/' . $pageUrl;
 	}
 }
 
@@ -81,7 +81,7 @@ if (!function_exists('hyphen_session_redirect_to_allowed_page')) {
 			mysqli_stmt_close($statement);
 		}
 
-		header('Location: ' . hyphen_session_root_prefix() . '/pages/template/empty_page.php');
+		header('Location: ' . hyphen_session_root_prefix() . '/pages/template/empty_page');
 		exit;
 	}
 }

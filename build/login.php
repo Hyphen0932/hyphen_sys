@@ -172,14 +172,12 @@ function login_status_is_active(string $status): bool
 
 function build_page_target(string $pageUrl): string
 {
-	$pageUrl = ltrim(str_replace('\\', '/', trim($pageUrl)), '/');
+	$pageUrl = trim(str_replace('\\', '/', trim($pageUrl)), '/');
 	if ($pageUrl === '') {
 		return 'pages/template/empty_page';
 	}
 
-	if (substr($pageUrl, -4) !== '.php') {
-		$pageUrl .= '.php';
-	}
+	$pageUrl = preg_replace('/\.php$/i', '', $pageUrl);
 
 	if (strpos($pageUrl, 'pages/') === 0) {
 		return $pageUrl;

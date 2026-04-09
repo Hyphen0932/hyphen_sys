@@ -45,6 +45,11 @@ switch ($action) {
 		update_user($conn);
 		break;
 
+	case 'toggle_user_status':
+		hyphen_require_ability('edit', 'sys_admin/system_users_edit', null, true);
+		toggle_user_status($conn);
+		break;
+
 	default:
 		json_response(false, 'Unsupported action.', [], 400);
 }
@@ -251,6 +256,11 @@ function fetch_user_by_id(mysqli $conn, int $userId): ?array
 	return $user ?: null;
 }
 
+function user_status_is_active(string $status): bool
+{
+	return strtolower(trim($status)) === 'active';
+}
+
 function create_user(mysqli $conn): void
 {
 	$username = posted_value('username');
@@ -410,4 +420,49 @@ function update_user(mysqli $conn): void
 	}
 
 	json_response(true, 'User updated successfully.');
+}
+
+function toggle_user_status(mysqli $conn): void
+{
+	$userId = (int) ($_POST['user_id'] ?? 0);
+	if ($userId <= 0) {
+		json_response(false, 'User id is required.', [], 422);
+	}
+
+	$user = fetch_user_by_id($conn, $userId);
+	if (!$user) {
+		json_response(false, 'User record not found.', [], 404);
+	}
+
+	$staffId = trim((string) ($user['staff_id'] ?? ''));
+	if ($staffId === '') {
+		json_response(false, 'User record is missing staff ID.', [], 422);
+	}
+
+	$currentStaffId = trim((string) ($_SESSION['staff_id'] ?? ''));
+	$currentStatus = trim((string) ($user['status'] ?? ''));
+	$nextStatus = user_status_is_active($currentStatus) ? 'inactive' : 'active';
+
+	if ($currentStaffId !== '' && $currentStaffId === $staffId && $nextStatus !== 'active') {
+		json_response(false, 'You cannot deactivate your own account.', [], 422);
+	}
+
+	$statement = mysqli_prepare($conn, 'UPDATE hy_users SET status = ? WHERE id = ?');
+	if (!$statement) {
+		json_response(false, 'Failed to prepare status update.', [], 500);
+	}
+
+	mysqli_stmt_bind_param($statement, 'si', $nextStatus, $userId);
+	if (!mysqli_stmt_execute($statement)) {
+		$error = mysqli_stmt_error($statement);
+		mysqli_stmt_close($statement);
+		json_response(false, 'Failed to update user status: ' . $error, [], 500);
+	}
+	mysqli_stmt_close($statement);
+
+	json_response(true, 'User status updated successfully.', [
+		'user_id' => $userId,
+		'staff_id' => $staffId,
+		'status' => $nextStatus,
+	]);
 }

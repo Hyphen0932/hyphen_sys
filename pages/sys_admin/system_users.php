@@ -89,6 +89,8 @@ include_once '../../include/h_cstable.php';
                             <?php if (!empty($users)): ?>
                                 <?php foreach ($users as $index => $user): ?>
                                     <?php $statusBadge = system_user_status_badge((string) ($user['status'] ?? '')); ?>
+                                    <?php $isCurrentUser = (string) ($_SESSION['staff_id'] ?? '') === (string) ($user['staff_id'] ?? ''); ?>
+                                    <?php $isUserActive = strtolower(trim((string) ($user['status'] ?? ''))) === 'active'; ?>
                                     <tr>
                                         <td><?php echo $index + 1; ?></td>
                                         <td class="text-center align-middle">
@@ -103,7 +105,7 @@ include_once '../../include/h_cstable.php';
                                         <td><?php echo htmlspecialchars((string) ($user['username'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars((string) ($user['role'] ?? '')); ?></td>
                                         <td>
-                                            <span class="badge <?php echo htmlspecialchars($statusBadge['class']); ?>">
+                                            <span class="badge user-status-badge <?php echo htmlspecialchars($statusBadge['class']); ?>">
                                                 <?php echo htmlspecialchars($statusBadge['label']); ?>
                                             </span>
                                         </td>
@@ -129,6 +131,21 @@ include_once '../../include/h_cstable.php';
                                                     </li>
                                                 <?php else: ?>
                                                     <li><span class="dropdown-item disabled">Email Notification</span></li>
+                                                <?php endif; ?>
+                                                <?php if ($canEditUsers): ?>
+                                                    <li>
+                                                        <button
+                                                            type="button"
+                                                            class="dropdown-item toggle-user-status"
+                                                            data-user-id="<?php echo (int) ($user['id'] ?? 0); ?>"
+                                                            data-staff-id="<?php echo htmlspecialchars((string) ($user['staff_id'] ?? '')); ?>"
+                                                            data-current-status="<?php echo htmlspecialchars(strtolower(trim((string) ($user['status'] ?? 'inactive')))); ?>"
+                                                            <?php echo $isCurrentUser && $isUserActive ? 'disabled' : ''; ?>>
+                                                            <?php echo $isUserActive ? 'Deactivate' : 'Activate'; ?>
+                                                        </button>
+                                                    </li>
+                                                <?php else: ?>
+                                                    <li><span class="dropdown-item disabled">Change Status</span></li>
                                                 <?php endif; ?>
                                                 <li><span class="dropdown-item disabled"><?php echo $canDeleteUsers ? 'Delete (Pending)' : 'Delete'; ?></span></li>
                                             </ul>
@@ -179,6 +196,7 @@ include_once '../../include/h_jstable.php';
 <script>
     $(document).ready(function() {
         const userEmailNotificationUrl = 'action/sys_users_email_noti.php';
+        const userCrudUrl = 'action/sys_users_crud.php';
 
         function showSuccess(message) {
             if (window.Swal && typeof window.Swal.fire === 'function') {
@@ -244,6 +262,33 @@ include_once '../../include/h_jstable.php';
             button.innerHTML = button.dataset.defaultHtml;
         }
 
+        function statusBadgeMarkup(status) {
+            const normalized = String(status || '').trim().toLowerCase();
+            const isActive = normalized === 'active';
+            const label = normalized !== '' ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Unknown';
+            const className = isActive ? 'bg-success-transparent text-success' : 'bg-danger-transparent text-danger';
+            return '<span class="badge user-status-badge ' + className + '">' + label + '</span>';
+        }
+
+        function setStatusButtonLoading(button, loading) {
+            if (!button) {
+                return;
+            }
+
+            if (!button.dataset.defaultHtml) {
+                button.dataset.defaultHtml = button.innerHTML;
+            }
+
+            if (loading) {
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm align-middle me-2" role="status" aria-hidden="true"></span><span>Updating...</span>';
+                return;
+            }
+
+            button.disabled = button.dataset.selfProtected === 'true' && button.dataset.currentStatus === 'active';
+            button.innerHTML = button.dataset.defaultHtml;
+        }
+
         // basic datatable
         $('#SysUsers').DataTable({
             language: {
@@ -263,7 +308,7 @@ include_once '../../include/h_jstable.php';
             const staffId = button.dataset.staffId || '';
             const email = button.dataset.email || '';
             const userId = button.dataset.userId || '';
-            const confirmed = await showConfirm('Send login email to ' + staffId + ' <' + email + '> using template NF-00001?');
+            const confirmed = await showConfirm('Email to ' + staffId + ' <' + email + '> using template NF-00001?');
 
             if (!confirmed) {
                 return;
@@ -300,6 +345,62 @@ include_once '../../include/h_jstable.php';
 
         $('.send-user-email-notification').each(function() {
             this.dataset.hasEmail = ((this.dataset.email || '').trim() !== '').toString();
+        });
+
+        $('.toggle-user-status').each(function() {
+            const row = this.closest('tr');
+            this.dataset.selfProtected = (this.disabled).toString();
+            this.dataset.rowIndex = row ? row.rowIndex : '';
+        });
+
+        $('#SysUsers tbody').on('click', '.toggle-user-status', async function() {
+            const button = this;
+            const currentStatus = (button.dataset.currentStatus || '').trim().toLowerCase();
+            const nextStatus = currentStatus === 'active' ? 'inactive' : 'active';
+            const staffId = button.dataset.staffId || '';
+            const userId = button.dataset.userId || '';
+            const confirmed = await showConfirm('Change user ' + staffId + ' status to ' + nextStatus + '?');
+
+            if (!confirmed) {
+                return;
+            }
+
+            setStatusButtonLoading(button, true);
+
+            try {
+                const response = await fetch(userCrudUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                    },
+                    credentials: 'same-origin',
+                    body: new URLSearchParams({
+                        action: 'toggle_user_status',
+                        user_id: userId
+                    }).toString()
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    await showError(result.message || 'Unable to update user status.');
+                    return;
+                }
+
+                const newStatus = (((result.data || {}).status) || nextStatus).toLowerCase();
+                button.dataset.currentStatus = newStatus;
+                button.dataset.defaultHtml = newStatus === 'active' ? 'Deactivate' : 'Activate';
+                const row = button.closest('tr');
+                const badge = row ? row.querySelector('.user-status-badge') : null;
+                if (badge) {
+                    badge.outerHTML = statusBadgeMarkup(newStatus);
+                }
+
+                await showSuccess(result.message || 'User status updated successfully.');
+            } catch (error) {
+                await showError('Unable to update user status.');
+            } finally {
+                setStatusButtonLoading(button, false);
+            }
         });
     });
 </script>
