@@ -444,4 +444,6 @@ if (!function_exists('hyphen_audit_log_failure')) {
 
         return hyphen_audit_log($conn, $context);
     }
-}
+};
+
+?>
