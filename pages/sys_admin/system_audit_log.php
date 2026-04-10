@@ -1,129 +1,132 @@
 <?php
 include_once '../../build/config.php';
 include_once '../../build/session.php';
-include_once '../../build/audit.php';
 
 $pageAuth = hyphen_bind_page_auth('sys_admin/system_audit_log');
-$auditLogs = [];
-$dbError = null;
-$tableReady = hyphen_audit_table_exists($conn);
-
-if ($tableReady) {
-	$result = mysqli_query(
-		$conn,
-		'SELECT id, staff_id, actor_name, module, action_name, entity_type, entity_id, target_label, page_url, request_method, status, old_values_json, new_values_json, metadata_json, ip_address, user_agent, created_at
-		 FROM hy_audit_logs
-		 ORDER BY id DESC
-		 LIMIT 500'
-	);
-
-	if ($result === false) {
-		$dbError = 'Unable to load audit logs.';
-	} else {
-		while ($row = mysqli_fetch_assoc($result)) {
-			$row['old_values'] = json_decode((string) ($row['old_values_json'] ?? ''), true);
-			$row['new_values'] = json_decode((string) ($row['new_values_json'] ?? ''), true);
-			$row['metadata'] = json_decode((string) ($row['metadata_json'] ?? ''), true);
-			$auditLogs[] = $row;
-		}
-	}
-}
-
-function audit_status_badge(string $status): array
-{
-	$status = strtolower(trim($status));
-
-	switch ($status) {
-		case 'failed':
-			return ['class' => 'bg-danger-transparent text-danger', 'label' => 'Failed'];
-		case 'denied':
-			return ['class' => 'bg-warning-transparent text-warning', 'label' => 'Denied'];
-		default:
-			return ['class' => 'bg-success-transparent text-success', 'label' => ucfirst($status !== '' ? $status : 'success')];
-	}
-}
-
-function audit_summary_label(array $log): string
-{
-	$parts = [];
-
-	if (!empty($log['target_label'])) {
-		$parts[] = (string) $log['target_label'];
-	}
-
-	if (!empty($log['entity_type'])) {
-		$parts[] = (string) $log['entity_type'];
-	}
-
-	if (!empty($log['entity_id'])) {
-		$parts[] = '#' . (string) $log['entity_id'];
-	}
-
-	return $parts !== [] ? implode(' ', $parts) : '-';
-}
+$auditApiUrl = 'action/sys_audit_log_api.php';
 
 include_once '../../include/h_main.php';
 include_once '../../include/h_cstable.php';
 ?>
 <!-- Start::content -->
-<?php if (!$tableReady): ?>
 <div class="row">
-	<div class="col-12">
-		<div class="alert alert-warning">
-			Audit log table is not available yet. Run database migrations first.
+	<div class="col-xl-3 col-md-6">
+		<div class="card custom-card">
+			<div class="card-body">
+				<div class="text-muted mb-1">Total Logs</div>
+				<div class="fs-3 fw-semibold" id="auditTotalLogs">0</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-xl-3 col-md-6">
+		<div class="card custom-card">
+			<div class="card-body">
+				<div class="text-muted mb-1">Success</div>
+				<div class="fs-3 fw-semibold text-success" id="auditSuccessLogs">0</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-xl-3 col-md-6">
+		<div class="card custom-card">
+			<div class="card-body">
+				<div class="text-muted mb-1">Failure</div>
+				<div class="fs-3 fw-semibold text-danger" id="auditFailureLogs">0</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-xl-3 col-md-6">
+		<div class="card custom-card">
+			<div class="card-body">
+				<div class="text-muted mb-1">Avg. Execution</div>
+				<div class="fs-3 fw-semibold" id="auditAverageExecution">0 ms</div>
+			</div>
 		</div>
 	</div>
 </div>
-<?php elseif ($dbError !== null): ?>
-<div class="row">
-	<div class="col-12">
-		<div class="alert alert-danger">
-			<?php echo htmlspecialchars($dbError); ?>
-		</div>
-	</div>
-</div>
-<?php endif; ?>
+
 <div class="row">
 	<div class="col-12">
 		<div class="card custom-card">
 			<div class="card-header justify-content-between">
-				<div class="card-title">System Audit Log</div>
-				<div class="text-muted small">Showing latest 500 records</div>
+				<div class="card-title">Audit Filters</div>
 			</div>
 			<div class="card-body">
+				<form id="auditFilterForm" class="row g-3">
+					<div class="col-xl-2 col-md-6">
+						<label for="auditDateFrom" class="form-label">Date From</label>
+						<input type="date" class="form-control" id="auditDateFrom" name="date_from">
+					</div>
+					<div class="col-xl-2 col-md-6">
+						<label for="auditDateTo" class="form-label">Date To</label>
+						<input type="date" class="form-control" id="auditDateTo" name="date_to">
+					</div>
+					<div class="col-xl-2 col-md-6">
+						<label for="auditStaffId" class="form-label">Staff ID</label>
+						<input type="text" class="form-control" id="auditStaffId" name="staff_id" placeholder="e.g. A12345">
+					</div>
+					<div class="col-xl-2 col-md-6">
+						<label for="auditStatus" class="form-label">Status</label>
+						<select class="form-select" id="auditStatus" name="status">
+							<option value="">All</option>
+							<option value="success">Success</option>
+							<option value="failure">Failure</option>
+						</select>
+					</div>
+					<div class="col-xl-2 col-md-6">
+						<label for="auditAction" class="form-label">Action</label>
+						<input type="text" class="form-control" id="auditAction" name="audit_action" placeholder="create_user">
+					</div>
+					<div class="col-xl-2 col-md-6">
+						<label for="auditLimit" class="form-label">Rows</label>
+						<select class="form-select" id="auditLimit" name="limit">
+							<option value="100">100</option>
+							<option value="250">250</option>
+							<option value="500" selected>500</option>
+							<option value="1000">1000</option>
+						</select>
+					</div>
+					<div class="col-12">
+						<label for="auditEndpoint" class="form-label">Endpoint</label>
+						<input type="text" class="form-control" id="auditEndpoint" name="endpoint" placeholder="pages/sys_admin/action/sys_users_crud.php">
+					</div>
+					<div class="col-12 d-flex gap-2 flex-wrap">
+						<button type="submit" class="btn btn-primary">Apply Filters</button>
+						<button type="button" class="btn btn-light" id="auditResetBtn">Reset</button>
+						<button type="button" class="btn btn-info" id="auditRefreshBtn">Refresh</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="row">
+	<div class="col-12">
+		<div class="card custom-card">
+			<div class="card-header justify-content-between">
+				<div class="card-title">Audit Log Stream</div>
+				<div class="text-muted small" id="auditTableHint">Showing the most recent matching entries.</div>
+			</div>
+			<div class="card-body">
+				<div id="auditAlertHost"></div>
 				<div class="table-responsive">
-					<table id="AuditLogTable" class="table table-bordered text-nowrap w-100 align-middle">
+					<table id="auditLogTable" class="table table-bordered text-nowrap w-100">
 						<thead>
 							<tr>
-								<th style="width:5%;">S/N</th>
-								<th>Time</th>
-								<th>Actor</th>
+								<th>ID</th>
+								<th>Timestamp</th>
+								<th>Staff ID</th>
 								<th>Module</th>
 								<th>Action</th>
-								<th>Target</th>
+								<th>Method</th>
 								<th>Status</th>
-								<th>Page URL</th>
-								<th style="width:10%;">Details</th>
+								<th>Code</th>
+								<th>Exec. ms</th>
+								<th>Endpoint</th>
+								<th>Details</th>
 							</tr>
 						</thead>
-						<tbody>
-							<?php foreach ($auditLogs as $index => $log): ?>
-								<?php $statusBadge = audit_status_badge((string) ($log['status'] ?? 'success')); ?>
-								<tr>
-									<td><?php echo $index + 1; ?></td>
-									<td><?php echo htmlspecialchars((string) ($log['created_at'] ?? '')); ?></td>
-									<td><?php echo htmlspecialchars(trim((string) (($log['actor_name'] ?? '') !== '' ? $log['actor_name'] : ($log['staff_id'] ?? 'Unknown')))); ?></td>
-									<td><?php echo htmlspecialchars((string) ($log['module'] ?? '')); ?></td>
-									<td><?php echo htmlspecialchars((string) ($log['action_name'] ?? '')); ?></td>
-									<td><?php echo htmlspecialchars(audit_summary_label($log)); ?></td>
-									<td><span class="badge <?php echo htmlspecialchars($statusBadge['class']); ?>"><?php echo htmlspecialchars($statusBadge['label']); ?></span></td>
-									<td><?php echo htmlspecialchars((string) ($log['page_url'] ?? '')); ?></td>
-									<td>
-										<button type="button" class="btn btn-sm btn-primary audit-details-btn" data-log-id="<?php echo (int) ($log['id'] ?? 0); ?>">View</button>
-									</td>
-								</tr>
-							<?php endforeach; ?>
-						</tbody>
+						<tbody></tbody>
 					</table>
 				</div>
 			</div>
@@ -132,35 +135,42 @@ include_once '../../include/h_cstable.php';
 </div>
 
 <div class="modal fade" id="auditDetailModal" tabindex="-1" aria-hidden="true">
-	<div class="modal-dialog modal-lg modal-dialog-scrollable">
+	<div class="modal-dialog modal-xl modal-dialog-scrollable">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h5 class="modal-title">Audit Log Details</h5>
+				<h6 class="modal-title">Audit Entry Details</h6>
 				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 			</div>
 			<div class="modal-body">
 				<div class="row g-3 mb-3">
-					<div class="col-md-6"><div class="fw-semibold">Actor</div><div id="auditDetailActor" class="text-muted small"></div></div>
-					<div class="col-md-6"><div class="fw-semibold">Time</div><div id="auditDetailTime" class="text-muted small"></div></div>
-					<div class="col-md-4"><div class="fw-semibold">Module</div><div id="auditDetailModule" class="text-muted small"></div></div>
-					<div class="col-md-4"><div class="fw-semibold">Action</div><div id="auditDetailAction" class="text-muted small"></div></div>
-					<div class="col-md-4"><div class="fw-semibold">Status</div><div id="auditDetailStatus" class="text-muted small"></div></div>
-					<div class="col-md-6"><div class="fw-semibold">Target</div><div id="auditDetailTarget" class="text-muted small"></div></div>
-					<div class="col-md-6"><div class="fw-semibold">Page URL</div><div id="auditDetailPageUrl" class="text-muted small"></div></div>
-					<div class="col-md-6"><div class="fw-semibold">IP Address</div><div id="auditDetailIp" class="text-muted small"></div></div>
-					<div class="col-md-6"><div class="fw-semibold">Request Method</div><div id="auditDetailMethod" class="text-muted small"></div></div>
+					<div class="col-md-4">
+						<div class="border rounded p-3 h-100">
+							<div class="text-muted small mb-1">Staff ID</div>
+							<div class="fw-semibold" id="auditDetailStaffId">-</div>
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="border rounded p-3 h-100">
+							<div class="text-muted small mb-1">Endpoint</div>
+							<div class="fw-semibold text-break" id="auditDetailEndpoint">-</div>
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="border rounded p-3 h-100">
+							<div class="text-muted small mb-1">Error</div>
+							<div class="fw-semibold text-break" id="auditDetailError">-</div>
+						</div>
+					</div>
 				</div>
-				<div class="mb-3">
-					<div class="fw-semibold mb-2">Old Values</div>
-					<pre id="auditDetailOld" class="small bg-light border rounded p-3 mb-0" style="white-space: pre-wrap;"></pre>
-				</div>
-				<div class="mb-3">
-					<div class="fw-semibold mb-2">New Values</div>
-					<pre id="auditDetailNew" class="small bg-light border rounded p-3 mb-0" style="white-space: pre-wrap;"></pre>
-				</div>
-				<div>
-					<div class="fw-semibold mb-2">Metadata</div>
-					<pre id="auditDetailMeta" class="small bg-light border rounded p-3 mb-0" style="white-space: pre-wrap;"></pre>
+				<div class="row g-3">
+					<div class="col-lg-6">
+						<label class="form-label">Request Payload</label>
+						<pre class="bg-light border rounded p-3 small mb-0" id="auditDetailRequest" style="min-height:260px;"></pre>
+					</div>
+					<div class="col-lg-6">
+						<label class="form-label">Response Payload</label>
+						<pre class="bg-light border rounded p-3 small mb-0" id="auditDetailResponse" style="min-height:260px;"></pre>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -173,58 +183,243 @@ include_once '../../include/h_jstable.php';
 ?>
 <script>
 	$(document).ready(function() {
-		const auditLogs = <?php echo json_encode($auditLogs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
-		const detailMap = Object.fromEntries(auditLogs.map(function(log) {
-			return [String(log.id), log];
-		}));
+		const auditApiUrl = <?php echo json_encode($auditApiUrl); ?>;
+		const alertHost = document.getElementById('auditAlertHost');
 		const detailModalElement = document.getElementById('auditDetailModal');
 		const detailModal = detailModalElement ? bootstrap.Modal.getOrCreateInstance(detailModalElement) : null;
 
-		$('#AuditLogTable').DataTable({
+		const filterForm = document.getElementById('auditFilterForm');
+		const dateFromInput = document.getElementById('auditDateFrom');
+		const dateToInput = document.getElementById('auditDateTo');
+		const staffIdInput = document.getElementById('auditStaffId');
+		const statusInput = document.getElementById('auditStatus');
+		const actionInput = document.getElementById('auditAction');
+		const endpointInput = document.getElementById('auditEndpoint');
+		const limitInput = document.getElementById('auditLimit');
+		const resetBtn = document.getElementById('auditResetBtn');
+		const refreshBtn = document.getElementById('auditRefreshBtn');
+
+		const totalLogsNode = document.getElementById('auditTotalLogs');
+		const successLogsNode = document.getElementById('auditSuccessLogs');
+		const failureLogsNode = document.getElementById('auditFailureLogs');
+		const averageExecutionNode = document.getElementById('auditAverageExecution');
+		const tableHintNode = document.getElementById('auditTableHint');
+
+		const detailStaffIdNode = document.getElementById('auditDetailStaffId');
+		const detailEndpointNode = document.getElementById('auditDetailEndpoint');
+		const detailErrorNode = document.getElementById('auditDetailError');
+		const detailRequestNode = document.getElementById('auditDetailRequest');
+		const detailResponseNode = document.getElementById('auditDetailResponse');
+
+		let latestLogs = [];
+
+		const auditTable = $('#auditLogTable').DataTable({
 			language: {
 				searchPlaceholder: 'Search...',
-				sSearch: ''
+				sSearch: '',
 			},
 			pageLength: 25,
-			scrollX: true
+			scrollX: true,
+			order: [[0, 'desc']],
+			columnDefs: [{
+				targets: [10],
+				orderable: false,
+				searchable: false,
+				className: 'text-center align-middle',
+			}],
 		});
 
+		function formatDate(date) {
+			return date.toISOString().slice(0, 10);
+		}
+
+		function defaultFilters() {
+			const today = new Date();
+			const sevenDaysAgo = new Date(today);
+			sevenDaysAgo.setDate(today.getDate() - 7);
+
+			return {
+				date_from: formatDate(sevenDaysAgo),
+				date_to: formatDate(today),
+				staff_id: '',
+				status: '',
+				audit_action: '',
+				endpoint: '',
+				limit: '500'
+			};
+		}
+
+		function applyFiltersToForm(filters) {
+			dateFromInput.value = filters.date_from || '';
+			dateToInput.value = filters.date_to || '';
+			staffIdInput.value = filters.staff_id || '';
+			statusInput.value = filters.status || '';
+			actionInput.value = filters.audit_action || '';
+			endpointInput.value = filters.endpoint || '';
+			limitInput.value = String(filters.limit || '500');
+		}
+
+		function currentFilters() {
+			return {
+				date_from: dateFromInput.value,
+				date_to: dateToInput.value,
+				staff_id: staffIdInput.value.trim(),
+				status: statusInput.value,
+				audit_action: actionInput.value.trim(),
+				endpoint: endpointInput.value.trim(),
+				limit: limitInput.value
+			};
+		}
+
+		function setAlert(message, type = 'danger') {
+			if (!alertHost) {
+				return;
+			}
+
+			alertHost.innerHTML = message ? '<div class="alert alert-' + type + '" role="alert">' + $('<div>').text(message).html() + '</div>' : '';
+		}
+
+		function statusBadge(status) {
+			const normalized = String(status || '').toLowerCase();
+			if (normalized === 'success') {
+				return '<span class="badge bg-success-transparent text-success">Success</span>';
+			}
+
+			return '<span class="badge bg-danger-transparent text-danger">Failure</span>';
+		}
+
 		function prettyJson(value) {
-			if (!value || (typeof value === 'object' && Object.keys(value).length === 0)) {
-				return 'None';
+			if (!value) {
+				return '{}';
 			}
 
 			try {
-				return JSON.stringify(value, null, 2);
+				return JSON.stringify(JSON.parse(value), null, 2);
 			} catch (error) {
 				return String(value);
 			}
 		}
 
-		document.addEventListener('click', function(event) {
-			const button = event.target.closest('.audit-details-btn');
-			if (!button) {
+		async function callApi(action, filters) {
+			const params = new URLSearchParams({
+				action,
+				...filters,
+				_ts: Date.now()
+			});
+			const response = await fetch(auditApiUrl + '?' + params.toString(), {
+				method: 'GET',
+				credentials: 'same-origin',
+				cache: 'no-store',
+				headers: {
+					'Accept': 'application/json',
+					'X-Requested-With': 'XMLHttpRequest'
+				}
+			});
+
+			const responseText = await response.text();
+
+			try {
+				return JSON.parse(responseText);
+			} catch (error) {
+				const compactText = String(responseText || '').replace(/\s+/g, ' ').trim();
+				const snippet = compactText.slice(0, 220) || 'Empty response body.';
+				throw new Error('Server returned a non-JSON response: ' + snippet);
+			}
+		}
+
+		async function loadSummary(filters) {
+			const response = await callApi('get_summary', filters);
+			if (!response.success) {
+				throw new Error(response.message || 'Unable to load audit summary.');
+			}
+
+			const summary = response.data.summary || {};
+			totalLogsNode.textContent = summary.total_logs || 0;
+			successLogsNode.textContent = summary.success_logs || 0;
+			failureLogsNode.textContent = summary.failure_logs || 0;
+			averageExecutionNode.textContent = Math.round(summary.average_execution_ms || 0) + ' ms';
+		}
+
+		async function loadLogs(filters) {
+			const response = await callApi('list_logs', filters);
+			if (!response.success) {
+				throw new Error(response.message || 'Unable to load audit logs.');
+			}
+
+			latestLogs = response.data.logs || [];
+			auditTable.clear();
+
+			latestLogs.forEach(function(log) {
+				auditTable.row.add([
+					log.id,
+					$('<div>').text(log.created_at || '').html(),
+					$('<div>').text(log.staff_id || '-').html(),
+					$('<div>').text(log.page_key || '-').html(),
+					$('<div>').text(log.action || '').html(),
+					$('<div>').text(log.method || '').html(),
+					statusBadge(log.status),
+					log.response_code || 0,
+					log.execution_time_ms || 0,
+					$('<div>').text(log.api_endpoint || '').html(),
+					'<button type="button" class="btn btn-sm btn-primary audit-detail-btn" data-id="' + log.id + '">View</button>'
+				]);
+			});
+
+			auditTable.draw();
+			tableHintNode.textContent = 'Showing ' + latestLogs.length + ' matching entries.';
+		}
+
+		async function refreshAuditView() {
+			const filters = currentFilters();
+			setAlert('');
+
+			try {
+				await Promise.all([
+					loadSummary(filters),
+					loadLogs(filters)
+				]);
+			} catch (error) {
+				setAlert(error.message || 'Failed to load audit data.');
+				auditTable.clear().draw();
+			}
+		}
+
+		function openDetail(logId) {
+			const selectedLog = latestLogs.find(function(log) {
+				return Number(log.id) === Number(logId);
+			});
+
+			if (!selectedLog || !detailModal) {
 				return;
 			}
 
-			const log = detailMap[String(button.dataset.logId || '')];
-			if (!log || !detailModal) {
-				return;
-			}
-
-			document.getElementById('auditDetailActor').textContent = log.actor_name || log.staff_id || 'Unknown';
-			document.getElementById('auditDetailTime').textContent = log.created_at || '';
-			document.getElementById('auditDetailModule').textContent = log.module || '';
-			document.getElementById('auditDetailAction').textContent = log.action_name || '';
-			document.getElementById('auditDetailStatus').textContent = log.status || '';
-			document.getElementById('auditDetailTarget').textContent = (log.target_label || '') + (log.entity_id ? ' #' + log.entity_id : '');
-			document.getElementById('auditDetailPageUrl').textContent = log.page_url || '';
-			document.getElementById('auditDetailIp').textContent = log.ip_address || '';
-			document.getElementById('auditDetailMethod').textContent = log.request_method || '';
-			document.getElementById('auditDetailOld').textContent = prettyJson(log.old_values);
-			document.getElementById('auditDetailNew').textContent = prettyJson(log.new_values);
-			document.getElementById('auditDetailMeta').textContent = prettyJson(log.metadata);
+			detailStaffIdNode.textContent = selectedLog.staff_id || '-';
+			detailEndpointNode.textContent = selectedLog.api_endpoint || '-';
+			detailErrorNode.textContent = selectedLog.error_message || '-';
+			detailRequestNode.textContent = prettyJson(selectedLog.request_data);
+			detailResponseNode.textContent = prettyJson(selectedLog.response_data);
 			detailModal.show();
+		}
+
+		filterForm.addEventListener('submit', function(event) {
+			event.preventDefault();
+			refreshAuditView();
 		});
+
+		resetBtn.addEventListener('click', function() {
+			applyFiltersToForm(defaultFilters());
+			refreshAuditView();
+		});
+
+		refreshBtn.addEventListener('click', function() {
+			refreshAuditView();
+		});
+
+		$('#auditLogTable').on('click', '.audit-detail-btn', function() {
+			openDetail(this.getAttribute('data-id'));
+		});
+
+		applyFiltersToForm(defaultFilters());
+		refreshAuditView();
 	});
 </script>

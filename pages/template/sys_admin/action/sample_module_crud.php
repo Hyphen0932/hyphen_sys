@@ -1,36 +1,14 @@
 <?php
-include_once '../../../../build/config.php';
-include_once '../../../../build/authorization.php';
-
-header('Content-Type: application/json; charset=utf-8');
-mysqli_set_charset($conn, 'utf8mb4');
+include_once '../../../../build/api_bootstrap.php';
 
 const SAMPLE_MODULE_TABLE = 'your_table_name';
 
-if (!function_exists('json_response')) {
-    function json_response(bool $success, string $message, array $data = [], int $statusCode = 200): void
-    {
-        http_response_code($statusCode);
-        echo json_encode([
-            'success' => $success,
-            'message' => $message,
-            'data' => $data,
-        ]);
-        exit;
-    }
-}
-
-hyphen_boot_session();
-
-if (!hyphen_is_authenticated()) {
-    json_response(false, 'Your session has expired. Please sign in again.', [], 401);
-}
-
-hyphen_refresh_session_authorization($conn, (string) ($_SESSION['staff_id'] ?? ''));
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    json_response(false, 'Invalid request method.', [], 405);
-}
+hyphen_api_bootstrap([
+    'allowed_methods' => ['POST'],
+    'audit' => [
+        'page_key' => 'sys_admin/sample_module',
+    ],
+]);
 
 $action = trim((string) ($_POST['action'] ?? ''));
 

@@ -1,37 +1,14 @@
 <?php
 
-include_once __DIR__ . '/../../build/config.php';
-include_once __DIR__ . '/../../build/authorization.php';
-include_once __DIR__ . '/../../build/audit.php';
+include_once __DIR__ . '/../../build/api_bootstrap.php';
 include_once __DIR__ . '/../../build/email_notifications.php';
 
-header('Content-Type: application/json; charset=utf-8');
-mysqli_set_charset($conn, 'utf8mb4');
-
-if (!function_exists('json_response')) {
-    function json_response(bool $success, string $message, array $data = [], int $statusCode = 200): void
-    {
-        http_response_code($statusCode);
-        echo json_encode([
-            'success' => $success,
-            'message' => $message,
-            'data' => $data,
-        ]);
-        exit;
-    }
-}
-
-hyphen_boot_session();
-
-if (!hyphen_is_authenticated()) {
-    json_response(false, 'Your session has expired. Please sign in again.', [], 401);
-}
-
-hyphen_refresh_session_authorization($conn, (string) ($_SESSION['staff_id'] ?? ''));
-
-if (!in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'POST'], true)) {
-    json_response(false, 'Invalid request method.', [], 405);
-}
+hyphen_api_bootstrap([
+    'allowed_methods' => ['GET', 'POST'],
+    'audit' => [
+        'page_key' => 'sys_admin/system_email_notification',
+    ],
+]);
 
 $payload = api_request_payload();
 $action = trim((string) ($payload['action'] ?? ''));
@@ -94,20 +71,6 @@ switch ($action) {
 
     default:
         json_response(false, 'Unsupported action.', [], 400);
-}
-
-function api_request_payload(): array
-{
-    $payload = $_REQUEST;
-    $input = file_get_contents('php://input');
-    if (is_string($input) && trim($input) !== '') {
-        $decoded = json_decode($input, true);
-        if (is_array($decoded)) {
-            $payload = array_merge($payload, $decoded);
-        }
-    }
-
-    return is_array($payload) ? $payload : [];
 }
 
 function payload_value(array $payload, string $key): string
@@ -287,13 +250,6 @@ function update_mail_configuration(mysqli $conn, array $payload): void
     if (!mysqli_stmt_execute($statement)) {
         $error = mysqli_stmt_error($statement);
         mysqli_stmt_close($statement);
-        hyphen_audit_action($conn, 'email_notification', 'update_mail_configuration', [
-            'status' => 'failed',
-            'entity_type' => 'mail_configuration',
-            'entity_id' => (string) ($existingId > 0 ? $existingId : ($config['from_address'] ?? '')),
-            'target_label' => (string) ($config['from_address'] ?? ''),
-            'metadata' => ['error' => $error, 'summary' => ['provider' => $config['provider'], 'host' => $config['host'], 'from_address' => $config['from_address']]],
-        ]);
         json_response(false, 'Unable to save mail configuration: ' . $error, [], 500);
     }
 
@@ -302,13 +258,6 @@ function update_mail_configuration(mysqli $conn, array $payload): void
     $configured = hyphen_mail_is_configured($savedConfig);
     $missingConfig = hyphen_mail_missing_config_keys($savedConfig);
     $savedConfig['password'] = '';
-
-    hyphen_audit_action($conn, 'email_notification', 'update_mail_configuration', [
-        'entity_type' => 'mail_configuration',
-        'entity_id' => (string) ($existingId > 0 ? $existingId : ($savedConfig['from_address'] ?? '')),
-        'target_label' => (string) ($savedConfig['from_address'] ?? ''),
-        'metadata' => ['summary' => ['provider' => $savedConfig['provider'] ?? 'gmail', 'host' => $savedConfig['host'] ?? '', 'from_address' => $savedConfig['from_address'] ?? '']],
-    ]);
 
     json_response(true, 'Mail configuration saved successfully.', [
         'configuration' => $savedConfig,
@@ -341,20 +290,6 @@ function validate_template_payload(array $payload): array
         'body_text' => $bodyText !== '' ? $bodyText : null,
         'variables_json' => $variables !== [] ? json_encode($variables, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
         'is_active' => $isActive,
-    ];
-}
-
-function audit_template_snapshot(array $template): array
-{
-    return [
-        'category' => trim((string) ($template['category'] ?? '')),
-        'notification_code' => trim((string) ($template['notification_code'] ?? '')),
-        'template_name' => trim((string) ($template['template_name'] ?? '')),
-        'email_subject' => trim((string) ($template['email_subject'] ?? '')),
-        'body_text' => trim((string) ($template['body_text'] ?? '')),
-        'variables_json' => (string) ($template['variables_json'] ?? ''),
-        'is_active' => (int) ($template['is_active'] ?? 0),
-        'body_html_hash' => md5((string) ($template['body_html'] ?? '')),
     ];
 }
 
@@ -416,7 +351,6 @@ function create_template(mysqli $conn, array $payload): void
 {
     $template = validate_template_payload($payload);
     $createdBy = trim((string) ($_SESSION['staff_id'] ?? ''));
-    $templateAudit = audit_template_snapshot($template);
 
     $statement = mysqli_prepare(
         $conn,
@@ -445,27 +379,11 @@ function create_template(mysqli $conn, array $payload): void
     if (!mysqli_stmt_execute($statement)) {
         $error = mysqli_stmt_error($statement);
         mysqli_stmt_close($statement);
-        hyphen_audit_action($conn, 'email_notification', 'create_template', [
-            'status' => 'failed',
-            'entity_type' => 'email_template',
-            'entity_id' => $template['notification_code'],
-            'target_label' => $template['template_name'],
-            'new_values' => $templateAudit,
-            'metadata' => ['error' => $error],
-        ]);
         json_response(false, 'Unable to create template: ' . $error, [], 500);
     }
 
     $templateId = mysqli_insert_id($conn);
     mysqli_stmt_close($statement);
-
-    hyphen_audit_action($conn, 'email_notification', 'create_template', [
-        'entity_type' => 'email_template',
-        'entity_id' => (string) $templateId,
-        'target_label' => $template['template_name'],
-        'new_values' => $templateAudit,
-        'metadata' => ['summary' => ['notification_code' => $template['notification_code'], 'is_active' => $template['is_active']]],
-    ]);
     json_response(true, 'Template created successfully.', ['id' => $templateId]);
 }
 
@@ -480,11 +398,8 @@ function update_template(mysqli $conn, array $payload): void
         json_response(false, 'Template not found.', [], 404);
     }
 
-    $existingTemplate = hyphen_email_fetch_template_by_id($conn, $templateId);
     $template = validate_template_payload($payload);
     $updatedBy = trim((string) ($_SESSION['staff_id'] ?? ''));
-    $existingTemplateAudit = audit_template_snapshot($existingTemplate ?? []);
-    $updatedTemplateAudit = audit_template_snapshot($template);
 
     $statement = mysqli_prepare(
         $conn,
@@ -513,26 +428,10 @@ function update_template(mysqli $conn, array $payload): void
     if (!mysqli_stmt_execute($statement)) {
         $error = mysqli_stmt_error($statement);
         mysqli_stmt_close($statement);
-        hyphen_audit_action($conn, 'email_notification', 'update_template', [
-            'status' => 'failed',
-            'entity_type' => 'email_template',
-            'entity_id' => (string) $templateId,
-            'target_label' => $template['template_name'],
-            'old_values' => $existingTemplateAudit,
-            'new_values' => $updatedTemplateAudit,
-            'metadata' => ['error' => $error],
-        ]);
         json_response(false, 'Unable to update template: ' . $error, [], 500);
     }
 
     mysqli_stmt_close($statement);
-    hyphen_audit_action($conn, 'email_notification', 'update_template', [
-        'entity_type' => 'email_template',
-        'entity_id' => (string) $templateId,
-        'target_label' => $template['template_name'],
-        'old_values' => $existingTemplateAudit,
-        'new_values' => $updatedTemplateAudit,
-    ]);
     json_response(true, 'Template updated successfully.');
 }
 
@@ -543,8 +442,6 @@ function delete_template(mysqli $conn, array $payload): void
         json_response(false, 'Template id is required.', [], 422);
     }
 
-
-    $existingTemplate = hyphen_email_fetch_template_by_id($conn, $templateId);
     $statement = mysqli_prepare($conn, 'DELETE FROM hy_email_notification_templates WHERE id = ?');
     if (!$statement) {
         json_response(false, 'Failed to prepare template delete.', [], 500);
@@ -554,25 +451,10 @@ function delete_template(mysqli $conn, array $payload): void
     if (!mysqli_stmt_execute($statement)) {
         $error = mysqli_stmt_error($statement);
         mysqli_stmt_close($statement);
-        hyphen_audit_action($conn, 'email_notification', 'delete_template', [
-            'status' => 'failed',
-            'entity_type' => 'email_template',
-            'entity_id' => (string) $templateId,
-            'target_label' => (string) ($existingTemplate['template_name'] ?? ''),
-            'old_values' => audit_template_snapshot($existingTemplate ?? []),
-            'metadata' => ['error' => $error],
-        ]);
         json_response(false, 'Unable to delete template: ' . $error, [], 500);
     }
 
     mysqli_stmt_close($statement);
-    hyphen_audit_action($conn, 'email_notification', 'delete_template', [
-        'entity_type' => 'email_template',
-        'entity_id' => (string) $templateId,
-        'target_label' => (string) ($existingTemplate['template_name'] ?? ''),
-        'old_values' => audit_template_snapshot($existingTemplate ?? []),
-        'metadata' => ['summary' => ['notification_code' => (string) ($existingTemplate['notification_code'] ?? '')]],
-    ]);
     json_response(true, 'Template deleted successfully.');
 }
 
@@ -589,22 +471,8 @@ function send_test_email(mysqli $conn, array $payload): void
     ]);
 
     if (!$result['success']) {
-        hyphen_audit_action($conn, 'email_notification', 'send_test_email', [
-            'status' => 'failed',
-            'entity_type' => 'email_template',
-            'entity_id' => (string) ($template['id'] ?? 0),
-            'target_label' => (string) ($template['template_name'] ?? $template['notification_code'] ?? ''),
-            'metadata' => ['recipient_email' => $toEmail, 'result' => $result],
-        ]);
         json_response(false, $result['message'], $result, 422);
     }
-
-    hyphen_audit_action($conn, 'email_notification', 'send_test_email', [
-        'entity_type' => 'email_template',
-        'entity_id' => (string) ($template['id'] ?? 0),
-        'target_label' => (string) ($template['template_name'] ?? $template['notification_code'] ?? ''),
-        'metadata' => ['recipient_email' => $toEmail, 'result' => $result],
-    ]);
 
     json_response(true, $result['message'], $result);
 }
@@ -622,22 +490,8 @@ function send_notification(mysqli $conn, array $payload): void
     ]);
 
     if (!$result['success']) {
-        hyphen_audit_action($conn, 'email_notification', 'send_notification', [
-            'status' => 'failed',
-            'entity_type' => 'email_template',
-            'entity_id' => (string) ($template['id'] ?? 0),
-            'target_label' => (string) ($template['template_name'] ?? $template['notification_code'] ?? ''),
-            'metadata' => ['recipients' => $toEmails, 'result' => $result],
-        ]);
         json_response(false, $result['message'], $result, 422);
     }
-
-    hyphen_audit_action($conn, 'email_notification', 'send_notification', [
-        'entity_type' => 'email_template',
-        'entity_id' => (string) ($template['id'] ?? 0),
-        'target_label' => (string) ($template['template_name'] ?? $template['notification_code'] ?? ''),
-        'metadata' => ['recipients' => $toEmails, 'result' => $result],
-    ]);
 
     json_response(true, $result['message'], $result);
 }
