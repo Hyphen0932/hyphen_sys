@@ -9,6 +9,10 @@ class QueryRequest(BaseModel):
     question: str = Field(min_length=1)
     conversation_id: str | None = None
     include_rows: bool = False
+    model: str | None = None
+    allowed_tables: list[str] | None = None
+    row_limit: int | None = Field(default=None, ge=1, le=500)
+    prompt_notes: str | None = None
 
 
 settings = get_settings()
@@ -33,7 +37,14 @@ def health() -> dict[str, str]:
 @app.post("/query")
 def query(request: QueryRequest) -> dict[str, object]:
     try:
-        result = workflow.invoke(request.question, request.conversation_id)
+        result = workflow.invoke(
+            request.question,
+            request.conversation_id,
+            request.allowed_tables,
+            request.row_limit,
+            request.model,
+            request.prompt_notes,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

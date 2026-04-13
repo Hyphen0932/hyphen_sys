@@ -1,5 +1,6 @@
 <?php
 include_once __DIR__ . '/../../../build/api_bootstrap.php';
+include_once __DIR__ . '/../../../build/nl2sql_config.php';
 
 hyphen_api_bootstrap([
 	'allowed_methods' => ['POST'],
@@ -15,6 +16,15 @@ $payload = api_request_payload();
 $question = trim((string) ($payload['question'] ?? ''));
 $conversationId = trim((string) ($payload['conversation_id'] ?? ''));
 $includeRows = hyphen_ai_bool($payload['include_rows'] ?? false);
+$runtime = hyphen_nl2sql_effective_runtime($conn, (string) ($_SESSION['staff_id'] ?? ''));
+
+if (!$runtime['enabled']) {
+	json_response(false, 'NL2SQL access is disabled for your account.', [], 403);
+}
+
+if (($runtime['allowed_tables'] ?? []) === []) {
+	json_response(false, 'No allowed tables are configured for your account.', [], 403);
+}
 
 if ($question === '') {
 	json_response(false, 'Question is required.', [], 422);
@@ -34,7 +44,11 @@ $serviceUrl = $serviceBaseUrl . '/query';
 $requestBody = json_encode([
 	'question' => $question,
 	'conversation_id' => $conversationId,
-	'include_rows' => $includeRows,
+	'include_rows' => $includeRows && !empty($runtime['can_include_rows']),
+	'model' => $runtime['model_name'],
+	'allowed_tables' => $runtime['allowed_tables'],
+	'row_limit' => (int) ($runtime['row_limit'] ?? 50),
+	'prompt_notes' => (string) ($runtime['prompt_notes'] ?? ''),
 ], JSON_UNESCAPED_UNICODE);
 
 if (!is_string($requestBody) || $requestBody === '') {
@@ -63,10 +77,10 @@ if (($serviceResponse['status_code'] ?? 500) >= 400) {
 json_response(true, 'AI query completed successfully.', [
 	'question' => (string) ($decoded['question'] ?? $question),
 	'conversation_id' => (string) ($decoded['conversation_id'] ?? $conversationId),
-	'sql' => (string) ($decoded['sql'] ?? ''),
+	'sql' => !empty($runtime['can_view_sql']) ? (string) ($decoded['sql'] ?? '') : '',
 	'answer' => (string) ($decoded['answer'] ?? ''),
 	'row_count' => (int) ($decoded['row_count'] ?? 0),
-	'rows' => is_array($decoded['rows'] ?? null) ? $decoded['rows'] : [],
+	'rows' => !empty($runtime['can_include_rows']) && is_array($decoded['rows'] ?? null) ? $decoded['rows'] : [],
 ]);
 
 function hyphen_ai_bool(mixed $value): bool

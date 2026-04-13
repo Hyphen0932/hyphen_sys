@@ -20,6 +20,10 @@ class QueryState(TypedDict, total=False):
     conversation_id: str
     schema_context: str
     memory_context: str
+    allowed_tables: list[str]
+    row_limit: int
+    model_name: str
+    prompt_notes: str
     sql: str
     rows: list[dict[str, object]]
     answer: str
@@ -31,13 +35,8 @@ class QueryWorkflow:
         self.settings = settings
         self.engine = create_engine(settings.database_url, pool_pre_ping=True)
         self.memory_store = ConversationMemoryStore(settings.ai_memory_window)
-        self.schema_builder = SchemaContextBuilder(self.engine, settings.allowed_tables)
-        self.sql_guard = SQLGuard(settings.allowed_tables, settings.ai_result_row_limit)
-        self.llm = ChatOllama(
-            base_url=settings.ollama_base_url,
-            model=settings.ollama_model,
-            temperature=0,
-        )
+        self._schema_builders: dict[tuple[str, ...], SchemaContextBuilder] = {}
+        self._llm_cache: dict[str, ChatOllama] = {}
         self.graph = self._build_graph()
 
     def _build_graph(self):
@@ -57,8 +56,24 @@ class QueryWorkflow:
 
         return graph_builder.compile()
 
-    def _invoke_llm(self, prompt: str) -> str:
-        response = self.llm.invoke(prompt)
+    def _schema_builder_for(self, allowed_tables: list[str]) -> SchemaContextBuilder:
+        cache_key = tuple(allowed_tables)
+        if cache_key not in self._schema_builders:
+            self._schema_builders[cache_key] = SchemaContextBuilder(self.engine, allowed_tables)
+        return self._schema_builders[cache_key]
+
+    def _llm_for(self, model_name: str) -> ChatOllama:
+        cache_key = model_name.strip() or self.settings.ollama_model
+        if cache_key not in self._llm_cache:
+            self._llm_cache[cache_key] = ChatOllama(
+                base_url=self.settings.ollama_base_url,
+                model=cache_key,
+                temperature=0,
+            )
+        return self._llm_cache[cache_key]
+
+    def _invoke_llm(self, prompt: str, model_name: str) -> str:
+        response = self._llm_for(model_name).invoke(prompt)
         content = getattr(response, "content", response)
         if isinstance(content, list):
             return "\n".join(str(item) for item in content).strip()
@@ -73,10 +88,11 @@ class QueryWorkflow:
 
     def _load_context(self, state: QueryState) -> QueryState:
         conversation_id = state.get("conversation_id") or "default"
+        schema_builder = self._schema_builder_for(state["allowed_tables"])
         return {
             "conversation_id": conversation_id,
             "memory_context": self.memory_store.render(conversation_id),
-            "schema_context": self.schema_builder.build_context(state["question"]),
+            "schema_context": schema_builder.build_context(state["question"]),
         }
 
     def _generate_sql(self, state: QueryState) -> QueryState:
@@ -84,22 +100,24 @@ class QueryWorkflow:
             question=state["question"],
             schema_context=state["schema_context"],
             memory_context=state["memory_context"],
-            row_limit=self.settings.ai_result_row_limit,
+            row_limit=state["row_limit"],
+            prompt_notes=state.get("prompt_notes", ""),
         )
-        raw_sql = self._invoke_llm(prompt)
+        raw_sql = self._invoke_llm(prompt, state["model_name"])
         sql = self._extract_sql(raw_sql)
         if sql.upper() == "CANNOT_ANSWER":
             retry_prompt = build_sql_retry_prompt(
                 question=state["question"],
                 schema_context=state["schema_context"],
-                row_limit=self.settings.ai_result_row_limit,
+                row_limit=state["row_limit"],
+                prompt_notes=state.get("prompt_notes", ""),
             )
-            sql = self._extract_sql(self._invoke_llm(retry_prompt))
+            sql = self._extract_sql(self._invoke_llm(retry_prompt, state["model_name"]))
         return {"sql": sql}
 
     def _validate_sql(self, state: QueryState) -> QueryState:
         try:
-            validated_sql = self.sql_guard.validate(state["sql"])
+            validated_sql = SQLGuard(state["allowed_tables"], state["row_limit"]).validate(state["sql"])
         except SQLValidationError as exc:
             raise ValueError(str(exc)) from exc
         return {"sql": validated_sql}
@@ -120,13 +138,25 @@ class QueryWorkflow:
             sql=state["sql"],
             rows_json=json.dumps(rows, ensure_ascii=False, default=str),
         )
-        answer = self._invoke_llm(prompt)
+        answer = self._invoke_llm(prompt, state["model_name"])
         return {"answer": answer}
 
-    def invoke(self, question: str, conversation_id: str | None = None) -> dict[str, object]:
+    def invoke(
+        self,
+        question: str,
+        conversation_id: str | None = None,
+        allowed_tables: list[str] | None = None,
+        row_limit: int | None = None,
+        model_name: str | None = None,
+        prompt_notes: str | None = None,
+    ) -> dict[str, object]:
         payload: QueryState = {
             "question": question.strip(),
             "conversation_id": conversation_id or "default",
+            "allowed_tables": allowed_tables or self.settings.allowed_tables,
+            "row_limit": row_limit or self.settings.ai_result_row_limit,
+            "model_name": model_name or self.settings.ollama_model,
+            "prompt_notes": prompt_notes or "",
         }
         result = self.graph.invoke(payload)
         answer = str(result.get("answer", ""))
