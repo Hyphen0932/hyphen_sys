@@ -1,0 +1,9 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.1
+langchain==0.3.23
+langchain-ollama==0.3.2
+langgraph==0.3.31
+sqlalchemy==2.0.40
+PyMySQL==1.1.1
+sqlglot==26.16.0
+pydantic-settings==2.8.1

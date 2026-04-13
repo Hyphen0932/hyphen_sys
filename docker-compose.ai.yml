@@ -1,0 +1,29 @@
+services:
+  app:
+    environment:
+      AI_SERVICE_BASE_URL: ${AI_SERVICE_BASE_URL:-http://ai-service:8000}
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai_service/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+      AI_ALLOWED_TABLES: ${AI_ALLOWED_TABLES:-hy_users,hy_user_menu,hy_user_pages,hy_user_permissions}
+      AI_RESULT_ROW_LIMIT: ${AI_RESULT_ROW_LIMIT:-50}
+      AI_MEMORY_WINDOW: ${AI_MEMORY_WINDOW:-6}
+      AI_DB_HOST: ${AI_DB_HOST:-db}
+      AI_DB_PORT: ${AI_DB_PORT:-3306}
+      AI_DB_NAME: ${AI_DB_NAME:-${MYSQL_DATABASE:-hyphen_sys}}
+      AI_DB_USER: ${AI_DB_USER:-${MYSQL_USER:-hyphen_user}}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD:-${MYSQL_PASSWORD:-hyphen_pass}}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${AI_BIND_IP:-127.0.0.1}:${AI_PORT:-8001}:8000"
+    restart: unless-stopped

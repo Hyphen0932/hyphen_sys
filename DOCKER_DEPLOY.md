@@ -4,6 +4,7 @@
 
 - `docker-compose.yml`: 公共基础配置，只包含 `app` 和 `db`
 - `docker-compose.dev.yml`: 开发环境覆盖，暴露开发端口并启用 phpMyAdmin
+- `docker-compose.ai.yml`: AI 服务覆盖，启动 LangGraph/LangChain 数据问答服务
 - `docker-compose.prod.yml`: 生产环境覆盖，只暴露主系统端口，不启动 phpMyAdmin
 - `docker-compose.prod.admin.yml`: 生产环境临时维护覆盖，按需启用 phpMyAdmin
 - `.env.dev`: 开发环境变量
@@ -17,6 +18,7 @@
 - `scripts/deploy-prod.ps1`: 一键发布生产环境并执行迁移
 - `scripts/backup-prod-db.ps1`: 一键备份生产数据库
 - `RELEASE_SOP.md`: 标准发布流程
+- `ai_service/`: Python AI 服务，负责 prompt、memory、schema RAG 和 workflow orchestration
 
 ## 2. 开发环境
 
@@ -34,22 +36,29 @@
 powershell -ExecutionPolicy Bypass -File .\scripts\deploy-dev.ps1
 ```
 
+首次启动 AI 服务前，请先在宿主机安装并运行 Ollama，然后拉取模型：
+
+```powershell
+ollama pull qwen2.5-coder:7b
+ollama serve
+```
+
 查看状态：
 
 ```powershell
-docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml ps
+docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.ai.yml ps
 ```
 
 查看日志：
 
 ```powershell
-docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml logs -f
+docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.ai.yml logs -f
 ```
 
 停止开发环境：
 
 ```powershell
-docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml down
+docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.ai.yml down
 ```
 
 当你修改了 `docker-compose.dev.yml` 的挂载配置后，建议重新执行一次开发部署，确保容器按新的挂载方式启动。
@@ -57,20 +66,45 @@ docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f do
 删除开发环境数据：
 
 ```powershell
-docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml down -v
+docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.ai.yml down -v
 ```
 
 开发环境访问地址：
 
 - 主系统：`http://localhost:8080/hyphen_sys/`
 - phpMyAdmin：`http://localhost:8081/`
+- AI Service：`http://localhost:8001/`
 - 数据库宿主机连接：`127.0.0.1:3307`
 
 开发环境说明：
 
 - 主系统、数据库和 phpMyAdmin 都只绑定到本机地址
+- AI 服务默认只绑定本机地址，并通过 `host.docker.internal` 访问宿主机 Ollama
 - 适合本机开发、调试、看数据库
 - phpMyAdmin 默认只在开发环境中启用
+
+AI 服务验证方式：
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:8001/query -ContentType 'application/json' -Body '{"question":"有多少 active 用户？","conversation_id":"demo-1","include_rows":true}'
+```
+
+AI 服务当前只开放以下表做自然语言问答：
+
+- `hy_users`
+- `hy_user_menu`
+- `hy_user_pages`
+- `hy_user_permissions`
+
+AI 服务当前安全边界：
+
+- 只允许 `SELECT`
+- 拒绝多语句
+- 拒绝未授权表
+- 默认给非聚合查询补 `LIMIT`
+- 建议后续切换为数据库只读账号
+
+应用容器通过 `AI_SERVICE_BASE_URL` 访问 AI 服务，默认值是 `http://ai-service:8000`。
 
 ## 3. 生产环境
 

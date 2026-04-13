@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 $workspaceRoot = Split-Path -Parent $PSScriptRoot
 $projectName = 'hyphen_sys_dev'
 $envFile = '.env.dev'
-$composeFiles = @('-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml')
+$composeFiles = @('-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml', '-f', 'docker-compose.ai.yml')
 
 Push-Location $workspaceRoot
 try {
@@ -37,6 +37,7 @@ try {
     Write-Host 'Development deployment completed.'
     Write-Host 'App: http://localhost:8080/hyphen_sys/'
     Write-Host 'phpMyAdmin: http://localhost:8081/'
+    Write-Host 'AI Service: http://localhost:8001/'
 
     if ($ShowLogs) {
         & docker compose -p $projectName --env-file $envFile @composeFiles logs --tail 200
