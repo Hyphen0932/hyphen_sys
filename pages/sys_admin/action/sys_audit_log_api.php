@@ -4,6 +4,7 @@ include_once '../../../build/api_bootstrap.php';
 hyphen_api_bootstrap([
 	'allowed_methods' => ['GET'],
 	'audit' => [
+		'enabled' => false,
 		'page_key' => 'sys_admin/system_audit_log',
 	],
 ]);

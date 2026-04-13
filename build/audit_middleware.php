@@ -12,6 +12,10 @@ if (!class_exists('AuditMiddleware')) {
         private string $method = 'GET';
         private array $requestData = [];
         private string $responseBuffer = '';
+        private bool $enabled = true;
+        private string $mode = 'crud_only';
+        private array $allowedActions = [];
+        private array $ignoredActions = [];
         private bool $started = false;
         private bool $persisted = false;
         private static ?bool $tableAvailable = null;
@@ -24,6 +28,10 @@ if (!class_exists('AuditMiddleware')) {
             $this->pageKey = trim((string) ($options['page_key'] ?? ''));
             $this->fixedAction = trim((string) ($options['fixed_action'] ?? ''));
             $this->actionKey = trim((string) ($options['action_key'] ?? 'action')) ?: 'action';
+            $this->enabled = ($options['enabled'] ?? true) === true;
+            $this->mode = strtolower(trim((string) ($options['mode'] ?? 'crud_only')));
+            $this->allowedActions = $this->normalizeActionList($options['allowed_actions'] ?? []);
+            $this->ignoredActions = $this->normalizeActionList($options['ignored_actions'] ?? []);
             $this->apiEndpoint = (string) ($_SERVER['REQUEST_URI'] ?? ($_SERVER['SCRIPT_NAME'] ?? ''));
             $this->method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
         }
@@ -55,12 +63,12 @@ if (!class_exists('AuditMiddleware')) {
 
             $this->persisted = true;
 
-            if (!$this->started || !$this->auditTableExists()) {
+            if (!$this->enabled || !$this->started || !$this->auditTableExists()) {
                 return;
             }
 
             $action = $this->resolveAction();
-            if ($action === '') {
+            if ($action === '' || !$this->shouldAuditAction($action)) {
                 return;
             }
 
@@ -300,6 +308,73 @@ if (!class_exists('AuditMiddleware')) {
             $scriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
             $baseName = pathinfo($scriptName, PATHINFO_FILENAME);
             return trim($baseName);
+        }
+
+        private function shouldAuditAction(string $action): bool
+        {
+            $normalizedAction = $this->normalizeActionName($action);
+            if ($normalizedAction === '') {
+                return false;
+            }
+
+            if (in_array($normalizedAction, $this->ignoredActions, true)) {
+                return false;
+            }
+
+            if ($this->allowedActions !== []) {
+                return in_array($normalizedAction, $this->allowedActions, true);
+            }
+
+            if ($this->mode === 'all') {
+                return true;
+            }
+
+            if (!in_array($this->method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+                return false;
+            }
+
+            foreach ($this->crudActionPrefixes() as $prefix) {
+                if (strpos($normalizedAction, $prefix) === 0) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private function crudActionPrefixes(): array
+        {
+            return [
+                'create',
+                'add',
+                'update',
+                'edit',
+                'delete',
+                'remove',
+                'toggle',
+            ];
+        }
+
+        private function normalizeActionList($actions): array
+        {
+            if (!is_array($actions)) {
+                return [];
+            }
+
+            $normalized = [];
+            foreach ($actions as $action) {
+                $actionName = $this->normalizeActionName((string) $action);
+                if ($actionName !== '') {
+                    $normalized[] = $actionName;
+                }
+            }
+
+            return array_values(array_unique($normalized));
+        }
+
+        private function normalizeActionName(string $action): string
+        {
+            return strtolower(trim($action));
         }
 
         private function resolveStaffId(): string
