@@ -2,6 +2,19 @@ services:
   app:
     environment:
       AI_SERVICE_BASE_URL: ${AI_SERVICE_BASE_URL:-http://ai-service:8000}
+      AI_REDIS_HOST: ${AI_REDIS_HOST:-redis}
+      AI_REDIS_PORT: ${AI_REDIS_PORT:-6379}
+      AI_JOB_QUEUE_NAME: ${AI_JOB_QUEUE_NAME:-queue:ai:nl2sql}
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 
   ai-service:
     build:
@@ -26,4 +39,33 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "${AI_BIND_IP:-127.0.0.1}:${AI_PORT:-8001}:8000"
+    restart: unless-stopped
+
+  ai-worker:
+    build:
+      context: .
+      dockerfile: ai_service/Dockerfile
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      AI_SERVICE_BASE_URL: ${AI_SERVICE_BASE_URL:-http://ai-service:8000}
+      AI_DB_HOST: ${AI_DB_HOST:-db}
+      AI_DB_PORT: ${AI_DB_PORT:-3306}
+      AI_DB_NAME: ${AI_DB_NAME:-${MYSQL_DATABASE:-hyphen_sys}}
+      AI_DB_USER: ${AI_DB_USER:-${MYSQL_USER:-hyphen_user}}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD:-${MYSQL_PASSWORD:-hyphen_pass}}
+      AI_REDIS_HOST: ${AI_REDIS_HOST:-redis}
+      AI_REDIS_PORT: ${AI_REDIS_PORT:-6379}
+      AI_REDIS_DB: ${AI_REDIS_DB:-0}
+      AI_JOB_QUEUE_NAME: ${AI_JOB_QUEUE_NAME:-queue:ai:nl2sql}
+      AI_WORKER_QUEUES: ${AI_WORKER_QUEUES:-queue:ai:nl2sql}
+      AI_WORKER_BLOCK_TIMEOUT: ${AI_WORKER_BLOCK_TIMEOUT:-5}
+      AI_WORKER_HTTP_TIMEOUT: ${AI_WORKER_HTTP_TIMEOUT:-120}
     restart: unless-stopped

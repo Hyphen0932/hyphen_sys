@@ -163,6 +163,9 @@ include_once '../../include/h_footer.php';
 		const metaText = document.getElementById('aiMetaText');
 		const tableWrapper = document.getElementById('aiTableWrapper');
 		const tableHint = document.getElementById('aiTableHint');
+		let activeJobId = '';
+		let pollTimer = null;
+		let isPolling = false;
 
 		if (!form) {
 			return;
@@ -177,22 +180,26 @@ include_once '../../include/h_footer.php';
 
 		form.addEventListener('submit', function(event) {
 			event.preventDefault();
-			submitQuery();
+			submitJob();
 		});
 
 		resetBtn.addEventListener('click', function() {
+			stopPolling();
 			form.reset();
 			conversationInput.value = <?php echo json_encode($defaultConversationId); ?>;
 			conversationLabel.textContent = conversationInput.value;
+			activeJobId = '';
 			setAlert('');
+			clearResults();
 		});
 
 		clearBtn.addEventListener('click', function() {
+			stopPolling();
 			clearResults();
 			setAlert('');
 		});
 
-		function submitQuery() {
+		function submitJob() {
 			const question = questionInput.value.trim();
 			const conversationId = conversationInput.value.trim() || <?php echo json_encode($defaultConversationId); ?>;
 
@@ -205,6 +212,8 @@ include_once '../../include/h_footer.php';
 			setBusy(true);
 			setAlert('');
 			conversationLabel.textContent = conversationId;
+			metaText.textContent = 'Submitting AI job...';
+			statusText.textContent = 'Submitting...';
 
 			fetch(apiUrl, {
 				method: 'POST',
@@ -216,6 +225,7 @@ include_once '../../include/h_footer.php';
 					'X-Requested-With': 'XMLHttpRequest'
 				},
 				body: JSON.stringify({
+					action: 'create_job',
 					question: question,
 					conversation_id: conversationId,
 					include_rows: includeRowsInput.checked
@@ -239,15 +249,112 @@ include_once '../../include/h_footer.php';
 				});
 			})
 			.then(function(data) {
-				renderResponse(data);
+				activeJobId = data.job_id || '';
+				if (!activeJobId) {
+					throw new Error('Server did not return a job ID.');
+				}
+				statusText.textContent = 'Queued';
+				metaText.textContent = 'Job queued: ' + activeJobId;
+				answerBox.textContent = 'Your request has been accepted and is waiting to be processed.';
+				sqlBox.textContent = '-- Waiting for job completion';
+				tableWrapper.innerHTML = '<div class="text-muted">The server is processing your request. Results will appear automatically.</div>';
+				tableHint.textContent = 'Waiting for result...';
+				startPolling(activeJobId, Number(data.poll_interval_ms || 2000));
 			})
 			.catch(function(error) {
 				setAlert(error.message || 'Failed to query AI service.');
 				statusText.textContent = 'Failed';
-			})
-			.finally(function() {
+				metaText.textContent = 'Job submission failed';
 				setBusy(false);
+			})
+		}
+
+		function startPolling(jobId, intervalMs) {
+			stopPolling();
+			isPolling = true;
+			setBusy(true);
+			pollJob(jobId);
+			pollTimer = window.setInterval(function() {
+				pollJob(jobId);
+			}, Math.max(1000, intervalMs || 2000));
+		}
+
+		function stopPolling() {
+			if (pollTimer) {
+				window.clearInterval(pollTimer);
+				pollTimer = null;
+			}
+			isPolling = false;
+			setBusy(false);
+		}
+
+		function pollJob(jobId) {
+			fetch(apiUrl + '?action=get_job&job_id=' + encodeURIComponent(jobId), {
+				method: 'GET',
+				credentials: 'same-origin',
+				cache: 'no-store',
+				headers: {
+					'Accept': 'application/json',
+					'X-Requested-With': 'XMLHttpRequest'
+				}
+			})
+			.then(function(response) {
+				return response.text().then(function(body) {
+					let payload;
+					try {
+						payload = JSON.parse(body);
+					} catch (error) {
+						throw new Error('Unexpected response from server.');
+					}
+
+					if (!response.ok || !payload.success) {
+						throw new Error(payload.message || 'Polling failed.');
+					}
+
+					return payload.data || {};
+				});
+			})
+			.then(function(data) {
+				renderJobState(data);
+			})
+			.catch(function(error) {
+				stopPolling();
+				statusText.textContent = 'Failed';
+				metaText.textContent = 'Polling failed';
+				setAlert(error.message || 'Failed to load AI job status.');
 			});
+		}
+
+		function renderJobState(data) {
+			const status = String(data.status || 'queued');
+			statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+			metaText.textContent = 'Job ' + (data.job_id || activeJobId) + ' - ' + status;
+
+			if (status === 'queued') {
+				answerBox.textContent = 'Your request is queued on the server.';
+				return;
+			}
+
+			if (status === 'running') {
+				answerBox.textContent = 'The server is processing your request.';
+				return;
+			}
+
+			if (status === 'completed') {
+				stopPolling();
+				renderResponse(data.result || {});
+				metaText.textContent = 'Job completed successfully';
+				return;
+			}
+
+			if (status === 'failed' || status === 'timeout' || status === 'cancelled') {
+				stopPolling();
+				answerBox.textContent = 'The AI job did not complete successfully.';
+				sqlBox.textContent = '-- No SQL returned';
+				tableWrapper.innerHTML = '<div class="text-muted">No rows loaded.</div>';
+				tableHint.textContent = 'No rows loaded.';
+				setAlert(data.error_message || ('AI job ' + status + '.'), status === 'timeout' ? 'warning' : 'danger');
+			}
 		}
 
 		function renderResponse(data) {
@@ -293,8 +400,12 @@ include_once '../../include/h_footer.php';
 
 		function setBusy(isBusy) {
 			submitBtn.disabled = isBusy;
+			questionInput.disabled = isBusy;
+			includeRowsInput.disabled = isBusy;
 			spinner.classList.toggle('d-none', !isBusy);
-			statusText.textContent = isBusy ? 'Running...' : statusText.textContent;
+			if (!isBusy && !isPolling && (statusText.textContent === 'Submitting...' || statusText.textContent === 'Queued' || statusText.textContent === 'Running')) {
+				statusText.textContent = 'Ready';
+			}
 		}
 
 		function setAlert(message, type) {

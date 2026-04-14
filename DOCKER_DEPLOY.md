@@ -4,7 +4,7 @@
 
 - `docker-compose.yml`: 公共基础配置，只包含 `app` 和 `db`
 - `docker-compose.dev.yml`: 开发环境覆盖，暴露开发端口并启用 phpMyAdmin
-- `docker-compose.ai.yml`: AI 服务覆盖，启动 LangGraph/LangChain 数据问答服务
+- `docker-compose.ai.yml`: AI 服务覆盖，启动 LangGraph/LangChain 数据问答服务、Redis 队列和 AI worker
 - `docker-compose.prod.yml`: 生产环境覆盖，只暴露主系统端口，不启动 phpMyAdmin
 - `docker-compose.prod.admin.yml`: 生产环境临时维护覆盖，按需启用 phpMyAdmin
 - `.env.dev`: 开发环境变量
@@ -18,7 +18,7 @@
 - `scripts/deploy-prod.ps1`: 一键发布生产环境并执行迁移
 - `scripts/backup-prod-db.ps1`: 一键备份生产数据库
 - `RELEASE_SOP.md`: 标准发布流程
-- `ai_service/`: Python AI 服务，负责 prompt、memory、schema RAG 和 workflow orchestration
+- `ai_service/`: Python AI 服务，负责 prompt、memory、schema RAG、workflow orchestration 和异步 worker
 
 ## 2. 开发环境
 
@@ -80,6 +80,7 @@ docker compose -p hyphen_sys_dev --env-file .env.dev -f docker-compose.yml -f do
 
 - 主系统、数据库和 phpMyAdmin 都只绑定到本机地址
 - AI 服务默认只绑定本机地址，并通过 `host.docker.internal` 访问宿主机 Ollama
+- AI worker 通过 Redis 队列异步消费任务，避免前端长时间阻塞等待
 - 适合本机开发、调试、看数据库
 - phpMyAdmin 默认只在开发环境中启用
 
@@ -105,6 +106,12 @@ AI 服务当前安全边界：
 - 建议后续切换为数据库只读账号
 
 应用容器通过 `AI_SERVICE_BASE_URL` 访问 AI 服务，默认值是 `http://ai-service:8000`。
+
+异步 AI Job 说明：
+
+- 页面提交问题后，会先写入 `hy_ai_jobs`，再推送到 Redis 队列
+- `ai-worker` 负责消费队列并调用 `ai-service`
+- 前端通过轮询 job 状态接口获取结果
 
 ## 3. 生产环境
 
