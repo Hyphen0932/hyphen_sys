@@ -4,6 +4,10 @@
 
 This guide defines the deployment, verification, and extension pattern for the local AI data-query service used by Hyphen System.
 
+If you need the asynchronous execution architecture for long-running AI jobs, Redis queue orchestration, MySQL job persistence, Python workers, and frontend polling, also read:
+
+- `pages/sys_doc/ai_async_queue_architecture_guide.md`
+
 Current production-ready scope in this repository:
 
 - local inference through `Ollama`

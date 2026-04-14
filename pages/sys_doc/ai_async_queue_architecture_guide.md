@@ -473,3 +473,10 @@ This is the recommended phase-1 architecture for Hyphen System because it:
 - keeps server-side execution observable and auditable
 - supports future multi-model and multi-mode routing
 - can later evolve into queue partitioning, worker specialization, and richer monitoring without replacing the whole design
+
+
+如果你继续往下做，最自然的下一步是：
+
+补一个 job history / status 页面，让用户能看自己历史查询和失败原因
+加 cancel / retry 能力
+开始做 mode_key / model_key 路由，把多模型多模式接进这个异步框架
